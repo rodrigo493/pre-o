@@ -30,6 +30,9 @@ que o preço nunca fique abaixo da reposição mais cara recente.
 | Identificação de produto | **Mapeamento manual** para "produto mestre" |
 | Auto-vínculo | **Sim** — lembra `cProd → produto mestre` e auto-vincula notas futuras |
 | Janela de preço | **Últimos 3 meses**, pega o **maior custo** |
+| Tipos de produto | **`comprado`** (markup sobre NF) e **`montado`** (criado à mão) |
+| Preço manual | Pode **sobrescrever qualquer produto** (trava e ignora o markup) |
+| Produto montado | Tem **custo manual + preço manual** (pra ver margem) |
 | Subdomínio | `precos.liveuni.com.br` |
 
 ## 3. Stack e infraestrutura
@@ -78,7 +81,14 @@ nullable até vincular), `created_at`.
 
 ### `produtos_mestre`
 Produto canônico exibido no painel. Campos: `id`, `nome`, `categoria` (opcional),
-`created_at`.
+`tipo` (`comprado` | `montado`), `custo_manual` (nullable — usado no montado),
+`preco_manual` (nullable — quando preenchido, **trava o preço** e ignora o
+markup, valendo para qualquer tipo), `created_at`.
+
+- **`comprado`:** preço = markup sobre o maior custo dos últimos 3 meses
+  (a menos que `preco_manual` esteja preenchido).
+- **`montado`:** não tem item de nota; `custo_manual` e `preco_manual` são
+  digitados pelo usuário. `preco_manual` é obrigatório para o montado.
 
 ### `vinculos_cprod`
 Memória de auto-vínculo. Campos: `cprod` (PK), `produto_mestre_id` (FK),
@@ -94,18 +104,26 @@ cofins 7.6, csll 9, ir 25, lucro 20).
 
 **RLS:** todas as tabelas exigem usuário autenticado para leitura/escrita.
 
-## 6. Cálculo do preço (regra dos 3 meses)
+## 6. Resolução do preço por produto
 
-Para cada `produto_mestre`:
+Ordem de prioridade para definir o `precoVenda` de um `produto_mestre`:
 
-1. Buscar todos os `itens_nota` vinculados a ele cuja `nota.data_emissao` esteja
-   nos **últimos 3 meses** (hoje − 3 meses, janela móvel).
-2. Selecionar o **maior `custo_unitario`** desse conjunto.
-3. `calculateSellingPrice(maiorCusto, configMarkup, frete)` → `precoVenda`.
-4. Exibir: `precoVenda`, `maiorCusto`, nota/data de origem, nº de notas no período.
+1. **Preço manual (override):** se `preco_manual` está preenchido → usa ele,
+   para qualquer tipo. Badge "preço travado".
+2. **Montado sem override:** usa `preco_manual` (obrigatório no montado);
+   margem exibida contra `custo_manual`.
+3. **Comprado (regra dos 3 meses):**
+   a. Buscar todos os `itens_nota` vinculados cuja `nota.data_emissao` esteja
+      nos **últimos 3 meses** (hoje − 3 meses, janela móvel).
+   b. Selecionar o **maior `custo_unitario`** desse conjunto.
+   c. `calculateSellingPrice(maiorCusto, configMarkup, frete)` → `precoVenda`.
+   d. Exibir: `precoVenda`, `maiorCusto`, nota/data de origem, nº de notas.
 
-Se o produto não tem nenhum item nos últimos 3 meses → marcar como
-**"sem custo recente"** (sem preço calculado, badge de aviso).
+Comprado sem nenhum item nos últimos 3 meses e sem `preco_manual` → marcar como
+**"sem custo recente"** (sem preço, badge de aviso).
+
+Margem (%) é exibida sempre que houver custo + preço: custo = maior custo dos
+3 meses (comprado) ou `custo_manual` (montado).
 
 A fórmula (`pricing.ts`) usa divisor tributário:
 `divisor = 1 − despesas% − icms%×(1+ipi%) − pis% − cofins% − lucroBruto%`,
@@ -131,8 +149,12 @@ antes de salvar. Sem custo extraível → item descartado com aviso.
 - **Importar** — dropzone multi-arquivo + preview editável + botão salvar.
 - **Vincular itens** — fila de itens não vinculados; ação: ligar a mestre
   existente ou criar novo; mostra quantos serão auto-vinculados.
-- **Produtos** — busca + tabela (mestre, preço venda, maior custo, origem,
-  nº notas, badges) + botões Exportar Excel / Exportar PDF.
+- **Produtos** — busca + tabela (mestre, tipo, preço venda, custo, margem %,
+  origem, nº notas, badges "preço travado"/"sem custo recente") + botões
+  Exportar Excel / Exportar PDF. Ação de editar: travar `preco_manual` em
+  qualquer produto.
+- **Produto montado** — criar/editar produto `montado`: nome, categoria,
+  custo manual, preço manual.
 - **Configurações** — formulário dos percentuais do markup.
 
 ## 9. Exportação
@@ -154,6 +176,9 @@ antes de salvar. Sem custo extraível → item descartado com aviso.
   o preço usa o maior custo dentro da janela e ignora itens fora dela.
 - **Auto-vínculo:** item com `cprod` conhecido nasce vinculado; desconhecido vai
   para a fila.
+- **Resolução de preço:** `preco_manual` vence o markup (override); montado usa
+  preço manual e calcula margem contra `custo_manual`; comprado sem custo recente
+  e sem override → "sem custo recente".
 
 ## 11. Segurança e LGPD
 
@@ -161,7 +186,22 @@ antes de salvar. Sem custo extraível → item descartado com aviso.
 - Sem `.env` no git; chaves Supabase fixadas, `service_role` nunca no front-end.
 - Dependências seguem o protocolo de segurança (cooldown 7 dias, versão fixada).
 
-## 12. Fora de escopo (YAGNI)
+## 12. Deploy (parte da entrega)
+
+A entrega **inclui** subir a app em produção em `precos.liveuni.com.br`:
+
+- Build do front-end (`vite build`).
+- Container Docker servindo os estáticos (nginx), publicado no Swarm/Traefik da
+  VPS Live, com roteamento e TLS para `precos.liveuni.com.br`.
+- DNS do subdomínio apontando para a VPS.
+- Variáveis do Supabase (URL + anon key) injetadas no build; `service_role`
+  nunca no front-end.
+- Projeto Supabase novo provisionado (Auth e-mail/senha + tabelas + RLS).
+
+Critério de pronto: acessar `https://precos.liveuni.com.br`, logar, importar uma
+NF real e ver o preço de venda na tela.
+
+## 13. Fora de escopo (YAGNI)
 
 - Integração com Nomus API (esta ferramenta é por arquivo, por design).
 - Níveis de acesso/roles (login simples basta por ora).
