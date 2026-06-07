@@ -152,7 +152,6 @@ export default function Importar() {
         );
         queryClient.invalidateQueries({ queryKey: ["produtos-resolvidos"] });
         queryClient.invalidateQueries({ queryKey: ["pendentes"] });
-        queryClient.invalidateQueries({ queryKey: ["itens"] });
         // Remove notas que foram totalmente salvas; mantém as que falharam.
         if (falhas === 0) setNotas([]);
       } else if (falhas === 0) {

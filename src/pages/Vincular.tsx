@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,16 +38,20 @@ export default function Vincular() {
   const pendentes = pendentesQuery.data ?? [];
   const mestres = mestresQuery.data ?? [];
 
-  if (pendentesQuery.isError) {
-    toast.error(`Falha ao carregar pendentes: ${errMsg(pendentesQuery.error)}`);
-  }
-  if (mestresQuery.isError) {
-    toast.error(`Falha ao carregar produtos: ${errMsg(mestresQuery.error)}`);
-  }
+  useEffect(() => {
+    if (pendentesQuery.isError) {
+      toast.error(`Falha ao carregar pendentes: ${errMsg(pendentesQuery.error)}`);
+    }
+  }, [pendentesQuery.isError]);
+
+  useEffect(() => {
+    if (mestresQuery.isError) {
+      toast.error(`Falha ao carregar produtos: ${errMsg(mestresQuery.error)}`);
+    }
+  }, [mestresQuery.isError]);
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ["pendentes"] });
-    queryClient.invalidateQueries({ queryKey: ["itens"] });
     queryClient.invalidateQueries({ queryKey: ["produtos-resolvidos"] });
     queryClient.invalidateQueries({ queryKey: ["produtos-mestre"] });
   };
@@ -91,6 +95,7 @@ export default function Vincular() {
       await linkToMestre(item, mestre.id, lote);
     } catch (err) {
       toast.error(`Falha ao criar mestre: ${errMsg(err)}`);
+    } finally {
       setBusyId(null);
     }
   };
