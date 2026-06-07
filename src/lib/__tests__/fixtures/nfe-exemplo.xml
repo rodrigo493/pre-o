@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<nfeProc xmlns="http://www.portalfiscal.inf.br/nfe">
+  <NFe><infNFe>
+    <ide><nNF>12345</nNF><dhEmi>2026-03-15T10:30:00-03:00</dhEmi></ide>
+    <emit><xNome>FORNECEDOR EXEMPLO LTDA</xNome></emit>
+    <det nItem="1"><prod>
+      <cProd>ABC-001</cProd><xProd>PARAFUSO SEXTAVADO M8</xProd>
+      <uCom>UN</uCom><qCom>100.0000</qCom><vUnCom>2.5000</vUnCom>
+    </prod></det>
+    <det nItem="2"><prod>
+      <cProd>ABC-002</cProd><xProd>CHAPA ACO 2MM</xProd>
+      <uCom>KG</uCom><qCom>50.0000</qCom><vUnCom>18.9000</vUnCom>
+    </prod></det>
+  </infNFe></NFe>
+</nfeProc>
