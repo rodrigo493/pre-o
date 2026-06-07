@@ -19,6 +19,23 @@
 
 ---
 
+## Alterações pós-design (durante a execução)
+
+Decisões/correções que divergiram do design original e já estão implementadas:
+
+1. **Frete REMOVIDO.** O "preço de venda" passou a ser **base + IPI** (`precoComIPI`), sem frete. O campo de frete saiu de Configurações e da lógica; `resolvePrice` não recebe mais `frete`. A coluna `config_markup.frete` permanece inerte no banco (sem uso, não requer migração). `pricing.ts` segue intacto (portado).
+2. **`PriceStatus` ganhou `"sem_preco_manual"`** (montado sem preço manual) — distinto de `"sem_custo_recente"` (comprado sem custo recente). `PriceBadge` trata os 4 status exaustivamente.
+3. **Janela dos 3 meses timezone-safe:** `itensNaJanela` normaliza os dois lados com `startOfDay` (corrige borda em servidor UTC).
+4. **Tipos Supabase exigem `Relationships`** em cada tabela (senão postgrest-js degrada tudo para `never`).
+5. **Deploy com remontagem forçada:** `deploy.sh` faz staging + swap + `docker service update --force` (fazer `rm -rf` na pasta bind-mounted de um container rodando quebra o mount → 403).
+6. **Bugs corrigidos no review final:** toast de erro movido para `useEffect` (evita loop), `busyId` em `finally`, remoção de invalidação morta `["itens"]`.
+
+**NO AR:** `https://precos.liveuni.com.br` (Supabase projeto `idttiidpqsxvpfcfjefx`).
+
+**Follow-ups conhecidos (não bloqueantes):** `xlsx@0.18.5` tem CVE sem fix (uso só de escrita — baixo risco); `react-router-dom` 6.30.1→6.30.4 (patch de XSS, aplicar via protocolo de deps); bundle `index.js` ~297kB gzip (code-split/manualChunks); adicionar CSP no nginx; `parsers.ts` perto do limite de 800 linhas (split futuro).
+
+---
+
 ## File Structure
 
 ```
