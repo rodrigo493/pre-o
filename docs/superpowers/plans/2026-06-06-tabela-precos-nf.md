@@ -1043,6 +1043,13 @@ Copiar `cost-to-love/src/integrations/supabase/client.ts` verbatim (usa `VITE_SU
 
 - [ ] **Step 2: `types.ts` (Database escrito à mão a partir da migration)**
 
+> **IMPORTANTE (descoberto na Task 2.3):** cada tabela DEVE ter também um campo
+> `Relationships: []` (ou com as FKs reais nas tabelas com join). Sem ele, o
+> `@supabase/postgrest-js` 2.100.1 não casa o schema e degrada Row/Insert/Update
+> para `never`, quebrando TODA query. `itens_nota` e `vinculos_cprod` precisam das
+> FKs declaradas (itens_nota.nota_id→notas, itens_nota.produto_mestre_id→produtos_mestre,
+> vinculos_cprod.produto_mestre_id→produtos_mestre) para o join `notas!inner(...)` tipar.
+
 ```ts
 export interface Database {
   public: {
