@@ -623,11 +623,12 @@ Expected: FAIL — `Cannot find module '@/lib/priceResolution'`.
 - [ ] **Step 3: Implementar `priceResolution.ts`**
 
 ```ts
-import { subMonths, parseISO } from "date-fns";
+import { subMonths, parseISO, startOfDay } from "date-fns";
 import { calculateSellingPrice, type PricingPercentages } from "@/lib/pricing";
 
 export type ProdutoTipo = "comprado" | "montado";
-export type PriceStatus = "ok" | "travado" | "sem_custo_recente";
+// "sem_preco_manual" = montado sem preço manual definido (distinto de comprado sem custo recente)
+export type PriceStatus = "ok" | "travado" | "sem_custo_recente" | "sem_preco_manual";
 
 export interface ItemNota {
   id: string;
@@ -666,10 +667,12 @@ function margem(preco: number | null, custo: number | null): number | null {
   return ((preco - custo) / preco) * 100;
 }
 
-/** Itens dentro da janela móvel dos últimos 3 meses (limite inclusivo). */
+/** Itens dentro da janela móvel dos últimos 3 meses (limite inclusivo).
+ *  Normaliza os dois lados para start-of-day → timezone-safe (importante em
+ *  servidor UTC no Docker/VPS; senão a borda de 3 meses vira por horas). */
 function itensNaJanela(itens: ItemNota[], hoje: Date): ItemNota[] {
-  const limite = subMonths(hoje, 3);
-  return itens.filter((it) => parseISO(it.dataEmissao) >= limite);
+  const limite = startOfDay(subMonths(startOfDay(hoje), 3));
+  return itens.filter((it) => startOfDay(parseISO(it.dataEmissao)) >= limite);
 }
 
 export function resolvePrice(
@@ -702,13 +705,13 @@ export function resolvePrice(
     };
   }
 
-  // 2. Montado sem override: preço manual é obrigatório; sem ele → sem_custo_recente
+  // 2. Montado sem override: preço manual é obrigatório; sem ele → sem_preco_manual
   if (produto.tipo === "montado") {
     return {
       precoVenda: null,
       custoBase: produto.custoManual ?? null,
       margemPercent: null,
-      status: "sem_custo_recente",
+      status: "sem_preco_manual",
       origem: null,
       numNotasPeriodo: 0,
     };
@@ -1496,7 +1499,7 @@ export function useProdutosResolvidos() {
 
 - [ ] **Step 2: `PriceBadge.tsx`**
 
-Mapeia `status`: `travado` → badge "preço travado"; `sem_custo_recente` → badge âmbar "sem custo recente"; `ok` → nada.
+Mapeia `status`: `travado` → badge "preço travado"; `sem_custo_recente` → badge âmbar "sem custo recente"; `sem_preco_manual` → badge âmbar "preço manual pendente" (montado sem preço); `ok` → nada. O `switch`/map deve ser exaustivo sobre `PriceStatus`.
 
 - [ ] **Step 3: `Produtos.tsx`**
 
