@@ -11,16 +11,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import PriceBadge from "@/components/PriceBadge";
 import EditarPrecoDialog from "@/components/EditarPrecoDialog";
 import { useProdutosResolvidos, type LinhaProduto } from "@/hooks/useProdutosResolvidos";
 import { formatMargem, formatMoeda, formatOrigem } from "@/lib/produtoFormat";
+import { exportarXlsx } from "@/lib/exportXlsx";
 
 function errMsg(err: unknown): string {
   return err instanceof Error ? err.message : "erro desconhecido";
@@ -45,11 +40,23 @@ export default function Produtos() {
     setDialogOpen(true);
   };
 
-  const exportarEmBreve = () => toast.info("Exportação chega na Task 3.7.");
+  const exportarExcel = () => {
+    if (filtradas.length === 0) {
+      toast.info("Nenhum produto para exportar.");
+      return;
+    }
+    try {
+      exportarXlsx(filtradas);
+    } catch (err) {
+      toast.error(`Falha ao exportar Excel: ${errMsg(err)}`);
+    }
+  };
+
+  const exportarPdf = () => window.print();
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3 no-print">
         <div>
           <h1 className="text-xl font-semibold">Produtos</h1>
           <p className="text-sm text-muted-foreground">
@@ -57,33 +64,31 @@ export default function Produtos() {
             ou do preço manual (montados / travados).
           </p>
         </div>
-        <TooltipProvider>
-          <div className="flex gap-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span>
-                  <Button variant="outline" disabled onClick={exportarEmBreve}>
-                    Exportar Excel
-                  </Button>
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>em breve (Task 3.7)</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span>
-                  <Button variant="outline" disabled onClick={exportarEmBreve}>
-                    Exportar PDF
-                  </Button>
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>em breve (Task 3.7)</TooltipContent>
-            </Tooltip>
-          </div>
-        </TooltipProvider>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={exportarExcel}
+            disabled={produtosQuery.isLoading || filtradas.length === 0}
+          >
+            Exportar Excel
+          </Button>
+          <Button
+            variant="outline"
+            onClick={exportarPdf}
+            disabled={produtosQuery.isLoading || filtradas.length === 0}
+          >
+            Exportar PDF
+          </Button>
+        </div>
       </div>
 
-      <Card>
+      <Card id="print-area">
+        <div className="hidden print:block px-6 pt-6">
+          <h2 className="text-lg font-semibold">Tabela de Preços — Live</h2>
+          <p className="text-sm text-muted-foreground">
+            Gerado em {new Date().toLocaleDateString("pt-BR")}
+          </p>
+        </div>
         <CardHeader className="gap-3">
           <CardTitle className="text-base">
             Tabela de preços{!produtosQuery.isLoading ? ` (${filtradas.length})` : ""}
@@ -92,7 +97,7 @@ export default function Produtos() {
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
             placeholder="Buscar por nome…"
-            className="max-w-sm"
+            className="max-w-sm no-print"
           />
         </CardHeader>
         <CardContent>
@@ -123,7 +128,7 @@ export default function Produtos() {
                   <TableHead>Origem</TableHead>
                   <TableHead className="text-right">Nº notas (3m)</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
+                  <TableHead className="text-right no-print">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -152,7 +157,7 @@ export default function Produtos() {
                       <TableCell>
                         <PriceBadge status={r.status} />
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right no-print">
                         <Button
                           variant="ghost"
                           size="sm"
