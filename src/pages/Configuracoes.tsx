@@ -17,9 +17,7 @@ function errMsg(err: unknown): string {
   return err instanceof Error ? err.message : "erro desconhecido";
 }
 
-interface ConfigForm extends PricingPercentages {
-  frete: number;
-}
+type ConfigForm = PricingPercentages;
 
 const percentageKeys = Object.keys(percentageLabels) as Array<keyof PricingPercentages>;
 
@@ -41,12 +39,12 @@ export default function Configuracoes() {
     reset,
     formState: { isSubmitting },
   } = useForm<ConfigForm>({
-    defaultValues: { ...defaultPercentages, frete: 0 },
+    defaultValues: { ...defaultPercentages },
   });
 
   useEffect(() => {
     if (configQuery.data) {
-      reset({ ...configQuery.data.config, frete: configQuery.data.frete });
+      reset(configQuery.data);
     }
   }, [configQuery.data, reset]);
 
@@ -64,9 +62,8 @@ export default function Configuracoes() {
       lucro: sanitize(values.lucro),
       desgasteMaquinas: sanitize(values.desgasteMaquinas),
     };
-    const frete = sanitize(values.frete);
     try {
-      await saveConfig(config, frete);
+      await saveConfig(config);
       queryClient.invalidateQueries({ queryKey: ["config"] });
       queryClient.invalidateQueries({ queryKey: ["produtos-resolvidos"] });
       toast.success("Configurações salvas. Preços recalculados.");
@@ -76,7 +73,7 @@ export default function Configuracoes() {
   });
 
   const restaurarPadrao = () => {
-    reset({ ...defaultPercentages, frete: 0 });
+    reset({ ...defaultPercentages });
     toast.info("Valores padrão preenchidos. Clique em Salvar para aplicar.");
   };
 
@@ -115,16 +112,6 @@ export default function Configuracoes() {
                     />
                   </div>
                 ))}
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="cfg-frete">Frete (R$)</Label>
-                  <Input
-                    id="cfg-frete"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    {...register("frete", { valueAsNumber: true })}
-                  />
-                </div>
               </div>
 
               <div className="flex flex-wrap gap-2">

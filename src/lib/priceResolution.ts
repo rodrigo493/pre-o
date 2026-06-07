@@ -55,7 +55,6 @@ export function resolvePrice(
   produto: ProdutoMestre,
   itens: ItemNota[],
   config: PricingPercentages,
-  frete: number,
   hoje: Date,
 ): ResolvedPrice {
   const recentes = itensNaJanela(itens, hoje);
@@ -100,8 +99,8 @@ export function resolvePrice(
       status: "sem_custo_recente", origem: null, numNotasPeriodo: 0,
     };
   }
-  // preço cheio exibido = base + IPI + frete (preço cheio)
-  const preco = calculateSellingPrice(custoComprado, config, frete).precoComFrete;
+  // preço cheio = base + IPI
+  const preco = calculateSellingPrice(custoComprado, config, 0).precoComIPI;
   return {
     precoVenda: preco,
     custoBase: custoComprado,
