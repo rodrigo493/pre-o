@@ -100,7 +100,8 @@ export function resolvePrice(
       status: "sem_custo_recente", origem: null, numNotasPeriodo: 0,
     };
   }
-  const preco = calculateSellingPrice(custoComprado, config, frete).precoVenda;
+  // preço cheio exibido = base + IPI + frete (preço cheio)
+  const preco = calculateSellingPrice(custoComprado, config, frete).precoComFrete;
   return {
     precoVenda: preco,
     custoBase: custoComprado,

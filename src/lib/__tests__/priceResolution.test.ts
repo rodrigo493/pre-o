@@ -20,10 +20,38 @@ describe("resolvePrice — comprado (regra dos 3 meses)", () => {
     const r = resolvePrice(produto, itens, cfg, 0, HOJE);
     expect(r.status).toBe("ok");
     expect(r.custoBase).toBe(15);
-    const esperado = calculateSellingPrice(15, cfg, 0).precoVenda;
+    const esperado = calculateSellingPrice(15, cfg, 0).precoComFrete;
     expect(r.precoVenda).toBeCloseTo(esperado, 2);
     expect(r.numNotasPeriodo).toBe(2);
     expect(r.origem?.dataEmissao).toBe("2026-04-10");
+  });
+
+  it("frete entra no preço de venda (preço cheio)", () => {
+    const produto: ProdutoMestre = { id: "p1", nome: "X", tipo: "comprado" };
+    const itens = [item(100, "2026-05-01")]; // dentro da janela
+    const r = resolvePrice(produto, itens, cfg, 30, HOJE);
+    expect(r.status).toBe("ok");
+
+    const esperadoComFrete = calculateSellingPrice(100, cfg, 30).precoComFrete;
+    const semFrete = calculateSellingPrice(100, cfg, 0).precoComFrete;
+
+    // preço resolvido == preço cheio com frete
+    expect(r.precoVenda).toBeCloseTo(esperadoComFrete, 2);
+    // frete de 30 aumenta o preço em exatamente 30
+    expect(r.precoVenda!).toBeGreaterThan(semFrete);
+    expect(r.precoVenda).toBeCloseTo(semFrete + 30, 2);
+  });
+
+  it("IPI está embutido no preço de venda (all-in > base)", () => {
+    const produto: ProdutoMestre = { id: "p1", nome: "X", tipo: "comprado" };
+    const itens = [item(100, "2026-05-01")]; // dentro da janela
+    const r = resolvePrice(produto, itens, cfg, 0, HOJE);
+    expect(r.status).toBe("ok");
+
+    // cfg.ipi = 5.2 → all-in (precoComFrete) deve ser maior que a base (precoVenda)
+    const base = calculateSellingPrice(100, cfg, 0).precoVenda;
+    expect(cfg.ipi).toBeGreaterThan(0);
+    expect(r.precoVenda!).toBeGreaterThan(base);
   });
 
   it("sem item nos últimos 3 meses e sem preço manual → sem_custo_recente", () => {
