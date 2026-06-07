@@ -80,9 +80,30 @@ describe("resolvePrice — montado", () => {
       id: "p1", nome: "Reformer", tipo: "montado", custoManual: 1000, precoManual: 2500,
     };
     const r = resolvePrice(produto, [], cfg, 0, HOJE);
+    expect(r.status).toBe("travado"); // override manual
     expect(r.precoVenda).toBe(2500);
     expect(r.custoBase).toBe(1000);
     // margem sobre preço = (2500-1000)/2500 = 60%
     expect(r.margemPercent).toBeCloseTo(60, 4);
+  });
+
+  it("sem precoManual e sem custoManual → sem_preco_manual, tudo null", () => {
+    const produto: ProdutoMestre = { id: "p1", nome: "Reformer", tipo: "montado" };
+    const r = resolvePrice(produto, [], cfg, 0, HOJE);
+    expect(r.status).toBe("sem_preco_manual");
+    expect(r.precoVenda).toBeNull();
+    expect(r.custoBase).toBeNull();
+    expect(r.margemPercent).toBeNull();
+    expect(r.numNotasPeriodo).toBe(0);
+  });
+
+  it("sem precoManual mas com custoManual → sem_preco_manual, custoBase preservado", () => {
+    const produto: ProdutoMestre = {
+      id: "p1", nome: "Reformer", tipo: "montado", custoManual: 1000,
+    };
+    const r = resolvePrice(produto, [], cfg, 0, HOJE);
+    expect(r.status).toBe("sem_preco_manual");
+    expect(r.custoBase).toBe(1000);
+    expect(r.precoVenda).toBeNull();
   });
 });

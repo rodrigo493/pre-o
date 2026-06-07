@@ -2,7 +2,7 @@ import { subMonths, parseISO, startOfDay } from "date-fns";
 import { calculateSellingPrice, type PricingPercentages } from "@/lib/pricing";
 
 export type ProdutoTipo = "comprado" | "montado";
-export type PriceStatus = "ok" | "travado" | "sem_custo_recente";
+export type PriceStatus = "ok" | "travado" | "sem_custo_recente" | "sem_preco_manual";
 
 export interface ItemNota {
   id: string;
@@ -47,8 +47,8 @@ function margem(preco: number | null, custo: number | null): number | null {
  * seja inclusiva independente da hora/fuso de `hoje`.
  */
 function itensNaJanela(itens: ItemNota[], hoje: Date): ItemNota[] {
-  const limite = startOfDay(subMonths(hoje, 3));
-  return itens.filter((it) => parseISO(it.dataEmissao) >= limite);
+  const limite = startOfDay(subMonths(startOfDay(hoje), 3));
+  return itens.filter((it) => startOfDay(parseISO(it.dataEmissao)) >= limite);
 }
 
 export function resolvePrice(
@@ -81,13 +81,13 @@ export function resolvePrice(
     };
   }
 
-  // 2. Montado sem override: preço manual é obrigatório; sem ele → sem_custo_recente
+  // 2. Montado sem override: preço manual é obrigatório; sem ele → sem_preco_manual
   if (produto.tipo === "montado") {
     return {
       precoVenda: null,
       custoBase: produto.custoManual ?? null,
       margemPercent: null,
-      status: "sem_custo_recente",
+      status: "sem_preco_manual",
       origem: null,
       numNotasPeriodo: 0,
     };
