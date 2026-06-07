@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { aplicarAutoVinculo, type Vinculo } from "@/lib/autoLink";
+import {
+  aplicarAutoVinculo,
+  pendentesComMesmoCprod,
+  normalizeCprod,
+  type Vinculo,
+} from "@/lib/autoLink";
 
 const vinculos: Vinculo[] = [
   { cprod: "ABC-001", produtoMestreId: "m1" },
@@ -26,5 +31,30 @@ describe("aplicarAutoVinculo", () => {
     );
     expect(r.vinculados.map((v) => v.id)).toEqual(["i1"]);
     expect(r.pendentes.map((p) => p.id)).toEqual(["i9"]);
+  });
+});
+
+describe("pendentesComMesmoCprod", () => {
+  const itens = [
+    { id: "i1", cprod: "ABC-001" },
+    { id: "i2", cprod: "abc-001" },
+    { id: "i3", cprod: " ABC-001 " },
+    { id: "i4", cprod: "OUTRO" },
+  ];
+
+  it("retorna outros itens com mesmo cprod, case/space-insensitive, excluindo o alvo", () => {
+    const r = pendentesComMesmoCprod({ id: "i1", cprod: "ABC-001" }, itens);
+    expect(r.map((x) => x.id)).toEqual(["i2", "i3"]);
+  });
+
+  it("retorna vazio quando nenhum outro item compartilha o cprod", () => {
+    const r = pendentesComMesmoCprod({ id: "i4", cprod: "OUTRO" }, itens);
+    expect(r).toHaveLength(0);
+  });
+});
+
+describe("normalizeCprod", () => {
+  it("apara espaços e converte para maiúsculas", () => {
+    expect(normalizeCprod("  abc-1 ")).toBe("ABC-1");
   });
 });
