@@ -9,3 +9,6 @@ dist/
 
 # Catálogo Nomus (PDFs internos)
 produtos/
+
+# NF-e XML de entrada (dados internos)
+xml entrada Rodrigo/
