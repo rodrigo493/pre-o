@@ -16,7 +16,13 @@ import { parseCatalogFile, dedupeCatalog, type CatalogProduct } from "@/lib/cata
 import { listProdutosMestre, upsertCatalogByCodigo } from "@/repositories/produtosMestreRepo";
 
 function errMsg(err: unknown): string {
-  return err instanceof Error ? err.message : "erro desconhecido";
+  if (err instanceof Error) return err.message;
+  if (err && typeof err === "object") {
+    const e = err as { message?: string; details?: string; hint?: string; code?: string };
+    const parts = [e.message, e.details, e.hint, e.code].filter(Boolean);
+    if (parts.length > 0) return parts.join(" — ");
+  }
+  return "erro desconhecido";
 }
 
 export default function ImportarCatalogo() {

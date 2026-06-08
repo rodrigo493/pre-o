@@ -8,12 +8,12 @@ alter table public.produtos_mestre add column if not exists unidade text;
 alter table public.produtos_mestre add column if not exists unidade_secundaria text;
 alter table public.produtos_mestre add column if not exists fator_conversao numeric;
 
--- 2. Índice único parcial em código (permite vários NULL, mas código único)
---    Necessário para o upsert do catálogo (on conflict (codigo)).
+-- 2. Índice único em código (índice comum: NULL != NULL no Postgres, então
+--    permite vários NULL e mantém código único). NÃO usar índice PARCIAL aqui:
+--    o upsert do Supabase (ON CONFLICT (codigo)) não casa com índice parcial.
 drop index if exists idx_produtos_mestre_codigo;
 create unique index if not exists idx_produtos_mestre_codigo_uq
-  on public.produtos_mestre (codigo)
-  where codigo is not null;
+  on public.produtos_mestre (codigo);
 
 -- 3. api_precos: aplica a conversão de unidade no maior custo dos 3 meses.
 --    custo_convertido = custo_unitario * fator_conversao quando a unidade da nota
