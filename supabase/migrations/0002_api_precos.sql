@@ -46,11 +46,11 @@ declare
 begin
   -- Checagem da chave de API (compara com a chave guardada)
   if api_key is null
-     or api_key <> (select price_api_key from public.api_config where id = 1) then
+     or api_key <> (select ac.price_api_key from public.api_config ac where ac.id = 1) then
     raise exception 'unauthorized' using errcode = '28000';
   end if;
 
-  select * into cfg from public.config_markup where id = 1;
+  select * into cfg from public.config_markup cm where cm.id = 1;
 
   -- divisor tributário (mesma fórmula do pricing.ts / Lucro Real)
   desp    := (cfg.vendas + cfg.marketing + cfg.custo_operacional + cfg.desgaste_maquinas) / 100.0;
@@ -58,7 +58,7 @@ begin
   lucrob  := (cfg.lucro / 100.0) / (1 - cfg.csll / 100.0 - cfg.ir / 100.0);
   divisor := 1 - desp - icmsdiv - cfg.pis / 100.0 - cfg.cofins / 100.0 - lucrob;
 
-  for m in select * from public.produtos_mestre order by nome loop
+  for m in select * from public.produtos_mestre pm order by pm.nome loop
     -- janela móvel dos últimos 3 meses: maior custo + nº de notas
     select max(i.custo_unitario), count(distinct i.nota_id)
       into v_maior, v_num
