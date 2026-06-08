@@ -1,5 +1,6 @@
 import { subMonths, parseISO, startOfDay } from "date-fns";
 import { calculateSellingPrice, type PricingPercentages } from "@/lib/pricing";
+import { converterCusto } from "@/lib/unitConvert";
 
 export type ProdutoTipo = "comprado" | "montado";
 export type PriceStatus = "ok" | "travado" | "sem_custo_recente" | "sem_preco_manual";
@@ -10,6 +11,7 @@ export interface ItemNota {
   dataEmissao: string;   // ISO yyyy-mm-dd (nota.data_emissao)
   notaId: string;
   notaNumero?: string;
+  unidade?: string | null; // unidade da nota (para conversão)
 }
 
 export interface ProdutoMestre {
@@ -20,6 +22,9 @@ export interface ProdutoMestre {
   custoManual?: number | null;
   precoManual?: number | null;
   codigo?: string | null;
+  unidade?: string | null;
+  unidadeSecundaria?: string | null;
+  fatorConversao?: number | null;
 }
 
 export interface PriceOrigem {
@@ -35,6 +40,7 @@ export interface ResolvedPrice {
   status: PriceStatus;
   origem: PriceOrigem | null;
   numNotasPeriodo: number;
+  conversaoPendente: boolean;    // item em unidade divergente sem fator definido
 }
 
 function margem(preco: number | null, custo: number | null): number | null {
@@ -59,13 +65,23 @@ export function resolvePrice(
   hoje: Date,
 ): ResolvedPrice {
   const recentes = itensNaJanela(itens, hoje);
-  const maior = recentes.reduce<ItemNota | null>(
-    (acc, it) => (acc == null || it.custoUnitario > acc.custoUnitario ? it : acc),
+
+  // Converte o custo de cada item para a unidade principal do produto antes
+  // de comparar; sinaliza se algum item ficou pendente de fator de conversão.
+  let conversaoPendente = false;
+  const convertidos = recentes.map((it) => {
+    const conv = converterCusto(it.custoUnitario, it.unidade, produto);
+    if (conv.pendente) conversaoPendente = true;
+    return { item: it, custo: conv.custo };
+  });
+
+  const maior = convertidos.reduce<{ item: ItemNota; custo: number } | null>(
+    (acc, c) => (acc == null || c.custo > acc.custo ? c : acc),
     null,
   );
-  const custoComprado = maior?.custoUnitario ?? null;
+  const custoComprado = maior?.custo ?? null;
   const origem: PriceOrigem | null = maior
-    ? { notaId: maior.notaId, notaNumero: maior.notaNumero, dataEmissao: maior.dataEmissao }
+    ? { notaId: maior.item.notaId, notaNumero: maior.item.notaNumero, dataEmissao: maior.item.dataEmissao }
     : null;
 
   // 1. Override manual (qualquer tipo)
@@ -78,6 +94,7 @@ export function resolvePrice(
       status: "travado",
       origem: produto.tipo === "montado" ? null : origem,
       numNotasPeriodo: recentes.length,
+      conversaoPendente: produto.tipo === "montado" ? false : conversaoPendente,
     };
   }
 
@@ -90,6 +107,7 @@ export function resolvePrice(
       status: "sem_preco_manual",
       origem: null,
       numNotasPeriodo: 0,
+      conversaoPendente: false,
     };
   }
 
@@ -98,6 +116,7 @@ export function resolvePrice(
     return {
       precoVenda: null, custoBase: null, margemPercent: null,
       status: "sem_custo_recente", origem: null, numNotasPeriodo: 0,
+      conversaoPendente,
     };
   }
   // preço cheio = base + IPI
@@ -109,5 +128,6 @@ export function resolvePrice(
     status: "ok",
     origem,
     numNotasPeriodo: recentes.length,
+    conversaoPendente,
   };
 }

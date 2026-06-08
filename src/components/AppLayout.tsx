@@ -5,7 +5,8 @@ import { cn } from "@/lib/utils";
 
 const links = [
   { to: "/produtos", label: "Produtos" },
-  { to: "/importar", label: "Importar" },
+  { to: "/catalogo", label: "Importar catálogo" },
+  { to: "/importar", label: "Importar notas" },
   { to: "/vincular", label: "Vincular itens" },
   { to: "/montado", label: "Produto montado" },
   { to: "/config", label: "Configurações" },

@@ -1,10 +1,11 @@
-import { useRef, useState, type DragEvent } from "react";
+import { useRef, useState, type DragEvent, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface ImportDropzoneProps {
   onFiles: (files: File[]) => void;
   disabled?: boolean;
+  hint?: ReactNode;
 }
 
 const ACCEPTED = [".xml", ".pdf"];
@@ -13,7 +14,7 @@ function filterAccepted(files: File[]): File[] {
   return files.filter((f) => ACCEPTED.some((ext) => f.name.toLowerCase().endsWith(ext)));
 }
 
-export default function ImportDropzone({ onFiles, disabled }: ImportDropzoneProps) {
+export default function ImportDropzone({ onFiles, disabled, hint }: ImportDropzoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
 
@@ -52,7 +53,11 @@ export default function ImportDropzone({ onFiles, disabled }: ImportDropzoneProp
       )}
     >
       <p className="text-sm text-muted-foreground">
-        Arraste arquivos <strong>.xml</strong> ou <strong>.pdf</strong> de notas fiscais aqui
+        {hint ?? (
+          <>
+            Arraste arquivos <strong>.xml</strong> ou <strong>.pdf</strong> de notas fiscais aqui
+          </>
+        )}
       </p>
       <p className="text-xs text-muted-foreground">ou</p>
       <input

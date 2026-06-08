@@ -19,3 +19,30 @@ export async function updateProdutoMestre(id: string, patch: Database["public"][
   if (error) throw error;
   return data;
 }
+
+export interface CatalogUpsert {
+  codigo: string;
+  nome: string;
+  unidade: string | null;
+  unidade_secundaria: string | null;
+  tipo: "comprado" | "montado";
+}
+
+/**
+ * Upsert do catálogo por `codigo` (índice único). Atualiza nome/unidade/tipo
+ * dos existentes e insere os novos. Não toca em fator_conversao/preço manual.
+ * Processa em lotes para não estourar o limite de payload.
+ */
+export async function upsertCatalogByCodigo(produtos: CatalogUpsert[]): Promise<number> {
+  const LOTE = 500;
+  let total = 0;
+  for (let i = 0; i < produtos.length; i += LOTE) {
+    const slice = produtos.slice(i, i + LOTE);
+    const { error, count } = await supabase
+      .from("produtos_mestre")
+      .upsert(slice, { onConflict: "codigo", count: "exact" });
+    if (error) throw error;
+    total += count ?? slice.length;
+  }
+  return total;
+}

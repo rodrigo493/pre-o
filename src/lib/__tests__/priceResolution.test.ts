@@ -65,6 +65,43 @@ describe("resolvePrice — comprado (regra dos 3 meses)", () => {
   });
 });
 
+describe("resolvePrice — conversão de unidade", () => {
+  const chapa: ProdutoMestre = {
+    id: "p1", nome: "Chapa", tipo: "comprado",
+    unidade: "UNIDADE", unidadeSecundaria: "QUILOGRAMA", fatorConversao: 47.1,
+  };
+
+  it("converte custo da nota (kg) para a unidade principal (peça)", () => {
+    const itemKg: ItemNota = {
+      id: "i1", custoUnitario: 8.5, dataEmissao: "2026-05-01", notaId: "n1", unidade: "QUILOGRAMA",
+    };
+    const r = resolvePrice(chapa, [itemKg], cfg, HOJE);
+    expect(r.status).toBe("ok");
+    expect(r.custoBase).toBeCloseTo(400.35, 2); // 8.5 × 47.1
+    expect(r.conversaoPendente).toBe(false);
+  });
+
+  it("marca conversaoPendente quando falta o fator", () => {
+    const semFator: ProdutoMestre = { ...chapa, fatorConversao: null };
+    const itemKg: ItemNota = {
+      id: "i1", custoUnitario: 8.5, dataEmissao: "2026-05-01", notaId: "n1", unidade: "QUILOGRAMA",
+    };
+    const r = resolvePrice(semFator, [itemKg], cfg, HOJE);
+    expect(r.conversaoPendente).toBe(true);
+    expect(r.custoBase).toBe(8.5); // usa custo cru
+  });
+
+  it("compara o maior custo já convertido", () => {
+    const itens: ItemNota[] = [
+      { id: "i1", custoUnitario: 300, dataEmissao: "2026-05-01", notaId: "n1", unidade: "UNIDADE" },
+      { id: "i2", custoUnitario: 8.5, dataEmissao: "2026-05-02", notaId: "n2", unidade: "QUILOGRAMA" }, // 400.35 convertido
+    ];
+    const r = resolvePrice(chapa, itens, cfg, HOJE);
+    expect(r.custoBase).toBeCloseTo(400.35, 2);
+    expect(r.origem?.notaId).toBe("n2");
+  });
+});
+
 describe("resolvePrice — override manual", () => {
   it("preço manual vence o markup em produto comprado", () => {
     const produto: ProdutoMestre = { id: "p1", nome: "X", tipo: "comprado", precoManual: 500 };

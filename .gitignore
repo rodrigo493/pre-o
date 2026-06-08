@@ -6,3 +6,6 @@ dist/
 *.pem
 
 .claude/
+
+# Catálogo Nomus (PDFs internos)
+produtos/

@@ -28,10 +28,16 @@ interface EditarPrecoDialogProps {
 export default function EditarPrecoDialog({ linha, open, onOpenChange }: EditarPrecoDialogProps) {
   const queryClient = useQueryClient();
   const [valor, setValor] = useState("");
+  const [unidade, setUnidade] = useState("");
+  const [unidadeSec, setUnidadeSec] = useState("");
+  const [fator, setFator] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     setValor(linha?.precoManual != null ? String(linha.precoManual) : "");
+    setUnidade(linha?.unidade ?? "");
+    setUnidadeSec(linha?.unidadeSecundaria ?? "");
+    setFator(linha?.fatorConversao != null ? String(linha.fatorConversao) : "");
   }, [linha]);
 
   if (!linha) return null;
@@ -52,6 +58,29 @@ export default function EditarPrecoDialog({ linha, open, onOpenChange }: EditarP
       await updateProdutoMestre(linha.id, { preco_manual: num });
       invalidate();
       toast.success(`Preço travado em ${num.toFixed(2)}.`);
+      onOpenChange(false);
+    } catch (err) {
+      toast.error(`Falha ao salvar: ${errMsg(err)}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const salvarConversao = async () => {
+    const fatorNum = fator.trim() === "" ? null : Number(fator.replace(",", "."));
+    if (fatorNum != null && (!Number.isFinite(fatorNum) || fatorNum <= 0)) {
+      toast.error("Fator de conversão deve ser maior que zero (ou vazio).");
+      return;
+    }
+    setBusy(true);
+    try {
+      await updateProdutoMestre(linha.id, {
+        unidade: unidade.trim() || null,
+        unidade_secundaria: unidadeSec.trim() || null,
+        fator_conversao: fatorNum,
+      });
+      invalidate();
+      toast.success("Unidade e fator salvos.");
       onOpenChange(false);
     } catch (err) {
       toast.error(`Falha ao salvar: ${errMsg(err)}`);
@@ -99,16 +128,65 @@ export default function EditarPrecoDialog({ linha, open, onOpenChange }: EditarP
             placeholder="0,00"
             disabled={busy}
           />
+          <div className="flex justify-end gap-2">
+            {travado && (
+              <Button variant="outline" size="sm" onClick={() => void destravar()} disabled={busy}>
+                Destravar
+              </Button>
+            )}
+            <Button size="sm" onClick={() => void salvar()} disabled={busy}>
+              Salvar preço
+            </Button>
+          </div>
+        </div>
+
+        <div className="mt-2 flex flex-col gap-3 border-t pt-4">
+          <p className="text-sm font-medium">Conversão de unidade</p>
+          <p className="-mt-2 text-xs text-muted-foreground">
+            Quando a nota vem em unidade diferente, o custo é convertido para a unidade
+            principal. Fator = quantos da unidade secundária equivalem a 1 unidade principal
+            (ex.: 47,1 kg = 1 peça).
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="unidade" className="text-xs">Unidade principal</Label>
+              <Input
+                id="unidade"
+                value={unidade}
+                onChange={(e) => setUnidade(e.target.value)}
+                placeholder="UNIDADE"
+                disabled={busy}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="unidade-sec" className="text-xs">Unidade da nota</Label>
+              <Input
+                id="unidade-sec"
+                value={unidadeSec}
+                onChange={(e) => setUnidadeSec(e.target.value)}
+                placeholder="QUILOGRAMA"
+                disabled={busy}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="fator" className="text-xs">Fator (sec. por 1)</Label>
+              <Input
+                id="fator"
+                type="number"
+                min="0"
+                step="0.0001"
+                value={fator}
+                onChange={(e) => setFator(e.target.value)}
+                placeholder="47,1"
+                disabled={busy}
+              />
+            </div>
+          </div>
         </div>
 
         <DialogFooter className="gap-2 sm:gap-2">
-          {travado && (
-            <Button variant="outline" onClick={() => void destravar()} disabled={busy}>
-              Destravar
-            </Button>
-          )}
-          <Button onClick={() => void salvar()} disabled={busy}>
-            Salvar
+          <Button variant="outline" onClick={() => void salvarConversao()} disabled={busy}>
+            Salvar conversão
           </Button>
         </DialogFooter>
       </DialogContent>
