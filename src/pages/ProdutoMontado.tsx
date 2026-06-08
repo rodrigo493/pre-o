@@ -98,15 +98,15 @@ export default function ProdutoMontado() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-xl font-semibold">Produto montado</h1>
-        <p className="text-sm text-muted-foreground">
+        <h1 className="text-2xl font-bold tracking-tight">Produto montado</h1>
+        <p className="mt-0.5 text-sm text-muted-foreground">
           Produtos com custo e preço definidos manualmente (sem markup automático).
         </p>
       </div>
 
-      <Card>
+      <Card className="rounded-2xl shadow-sm">
         <CardHeader>
-          <CardTitle className="text-base">Novo produto montado</CardTitle>
+          <CardTitle className="text-base font-semibold">Novo produto montado</CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
@@ -160,9 +160,9 @@ export default function ProdutoMontado() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="rounded-2xl shadow-sm">
         <CardHeader>
-          <CardTitle className="text-base">
+          <CardTitle className="text-base font-semibold">
             Produtos montados{!produtosQuery.isLoading ? ` (${montados.length})` : ""}
           </CardTitle>
         </CardHeader>
@@ -180,7 +180,7 @@ export default function ProdutoMontado() {
           ) : (
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow className="[&_th]:text-[11px] [&_th]:font-medium [&_th]:uppercase [&_th]:tracking-wide [&_th]:text-muted-foreground">
                   <TableHead>Nome</TableHead>
                   <TableHead>Categoria</TableHead>
                   <TableHead className="text-right">Custo manual</TableHead>
@@ -201,13 +201,13 @@ export default function ProdutoMontado() {
                     <TableRow key={p.id}>
                       <TableCell className="font-medium">{p.nome}</TableCell>
                       <TableCell>{p.categoria ?? "—"}</TableCell>
-                      <TableCell className="text-right tabular-nums">
+                      <TableCell className="text-right font-mono-num text-muted-foreground">
                         {custo != null ? formatCurrency(custo) : "—"}
                       </TableCell>
-                      <TableCell className="text-right tabular-nums">
+                      <TableCell className="text-right font-mono-num font-semibold text-foreground">
                         {preco != null ? formatCurrency(preco) : "—"}
                       </TableCell>
-                      <TableCell className="text-right tabular-nums">
+                      <TableCell className="text-right font-mono-num text-muted-foreground">
                         {margem != null ? `${margem.toFixed(1)}%` : "—"}
                       </TableCell>
                       <TableCell className="text-right">

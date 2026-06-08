@@ -48,7 +48,7 @@ export default function VincularRow({
       <TableCell className="max-w-[24rem]">
         <span className="line-clamp-2">{item.descricao}</span>
       </TableCell>
-      <TableCell className="text-right tabular-nums">
+      <TableCell className="text-right font-mono-num text-muted-foreground">
         {formatCurrency(Number(item.custo_unitario))}
       </TableCell>
       <TableCell className="text-muted-foreground">{item.unidade ?? "—"}</TableCell>

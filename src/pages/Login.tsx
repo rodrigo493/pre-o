@@ -19,17 +19,27 @@ export default function Login() {
   }
   return (
     <div className="min-h-screen grid place-items-center bg-background px-4">
-      <Card className="w-full max-w-sm bg-card border-border p-6 space-y-5">
-        <div className="flex flex-col items-center gap-2">
-          <img src="/logo-live.svg" alt="Live" className="h-8 w-auto" />
-          <h1 className="text-sm text-muted-foreground">Tabela de Preços</h1>
+      <Card className="w-full max-w-sm rounded-2xl border-border bg-card p-7 shadow-sm">
+        <div className="mb-6 flex flex-col items-center gap-3">
+          <span className="inline-flex rounded-xl bg-[#0A0A0A] p-3">
+            <img src="/logo-live.png" alt="Live" className="h-7 w-auto" />
+          </span>
+          <h1 className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
+            Tabela de Preços
+          </h1>
         </div>
         <form onSubmit={entrar} className="space-y-3">
-          <div className="space-y-1"><Label>E-mail</Label>
-            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>
-          <div className="space-y-1"><Label>Senha</Label>
-            <Input type="password" value={senha} onChange={(e) => setSenha(e.target.value)} required /></div>
-          <Button type="submit" className="w-full" disabled={loading}>{loading ? "Entrando…" : "Entrar"}</Button>
+          <div className="space-y-1">
+            <Label>E-mail</Label>
+            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          </div>
+          <div className="space-y-1">
+            <Label>Senha</Label>
+            <Input type="password" value={senha} onChange={(e) => setSenha(e.target.value)} required />
+          </div>
+          <Button type="submit" className="w-full" disabled={loading}>
+            {loading ? "Entrando…" : "Entrar"}
+          </Button>
         </form>
       </Card>
     </div>

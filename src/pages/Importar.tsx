@@ -171,13 +171,13 @@ export default function Importar() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-xl font-semibold">Importar notas fiscais</h1>
-        <p className="text-sm text-muted-foreground">
+        <h1 className="text-2xl font-bold tracking-tight">Importar notas fiscais</h1>
+        <p className="mt-0.5 text-sm text-muted-foreground">
           Solte arquivos XML (NF-e) ou PDF (DANFE). Revise os custos antes de salvar.
         </p>
       </div>
 
-      <Card>
+      <Card className="rounded-2xl shadow-sm">
         <CardContent className="pt-6">
           <ImportDropzone onFiles={handleFiles} disabled={parsing || saving} />
           {parsing && (
@@ -187,9 +187,9 @@ export default function Importar() {
       </Card>
 
       {hasNotas && (
-        <Card>
+        <Card className="rounded-2xl shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between gap-4">
-            <CardTitle className="text-base">
+            <CardTitle className="text-base font-semibold">
               Pré-visualização ({notas.length} nota(s), {totalRows} item(ns))
             </CardTitle>
             <div className="flex gap-2">

@@ -105,16 +105,16 @@ export default function Vincular() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-xl font-semibold">Vincular itens</h1>
-        <p className="text-sm text-muted-foreground">
+        <h1 className="text-2xl font-bold tracking-tight">Vincular itens</h1>
+        <p className="mt-0.5 text-sm text-muted-foreground">
           Ligue cada item importado a um produto mestre. O código (cProd) fica memorizado
           para auto-vincular nas próximas notas.
         </p>
       </div>
 
-      <Card>
+      <Card className="rounded-2xl shadow-sm">
         <CardHeader>
-          <CardTitle className="text-base">
+          <CardTitle className="text-base font-semibold">
             Fila de pendentes{!loading ? ` (${pendentes.length})` : ""}
           </CardTitle>
         </CardHeader>
@@ -128,7 +128,7 @@ export default function Vincular() {
           ) : (
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow className="[&_th]:text-[11px] [&_th]:font-medium [&_th]:uppercase [&_th]:tracking-wide [&_th]:text-muted-foreground">
                   <TableHead>cProd</TableHead>
                   <TableHead>Descrição</TableHead>
                   <TableHead className="text-right">Custo unit.</TableHead>

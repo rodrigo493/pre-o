@@ -14,15 +14,15 @@ const STATUS_BADGE: Record<PriceStatus, BadgeStyle | null> = {
   ok: null,
   travado: {
     label: "preço travado",
-    className: "bg-blue-500/15 text-blue-300 border border-blue-500/30",
+    className: "bg-blue-50 text-blue-700 border border-blue-100",
   },
   sem_custo_recente: {
     label: "sem custo recente",
-    className: "bg-amber-500/15 text-amber-300 border border-amber-500/30",
+    className: "bg-amber-50 text-amber-700 border border-amber-100",
   },
   sem_preco_manual: {
     label: "preço manual pendente",
-    className: "bg-amber-500/15 text-amber-300 border border-amber-500/30",
+    className: "bg-amber-50 text-amber-700 border border-amber-100",
   },
 };
 

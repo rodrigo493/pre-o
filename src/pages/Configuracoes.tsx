@@ -80,16 +80,16 @@ export default function Configuracoes() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-xl font-semibold">Configurações</h1>
-        <p className="text-sm text-muted-foreground">
+        <h1 className="text-2xl font-bold tracking-tight">Configurações</h1>
+        <p className="mt-0.5 text-sm text-muted-foreground">
           Percentuais do markup fiscal aplicados sobre o maior custo dos últimos 3 meses
           (produtos comprados).
         </p>
       </div>
 
-      <Card>
+      <Card className="rounded-2xl shadow-sm">
         <CardHeader>
-          <CardTitle className="text-base">Percentuais do markup</CardTitle>
+          <CardTitle className="text-base font-semibold">Percentuais do markup</CardTitle>
         </CardHeader>
         <CardContent>
           {configQuery.isLoading ? (
@@ -103,11 +103,17 @@ export default function Configuracoes() {
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {percentageKeys.map((key) => (
                   <div key={key} className="flex flex-col gap-1.5">
-                    <Label htmlFor={`cfg-${key}`}>{percentageLabels[key]} (%)</Label>
+                    <Label
+                      htmlFor={`cfg-${key}`}
+                      className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground"
+                    >
+                      {percentageLabels[key]} (%)
+                    </Label>
                     <Input
                       id={`cfg-${key}`}
                       type="number"
                       step="0.01"
+                      className="font-mono-num"
                       {...register(key, { valueAsNumber: true })}
                     />
                   </div>
