@@ -24,6 +24,7 @@ export default function ImportarCatalogo() {
   const [produtos, setProdutos] = useState<CatalogProduct[]>([]);
   const [parsing, setParsing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [progress, setProgress] = useState({ atual: 0, total: 0 });
 
   // Códigos já existentes para mostrar "novos vs atualizam".
   const mestresQuery = useQuery({ queryKey: ["produtos-mestre"], queryFn: listProdutosMestre });
@@ -39,8 +40,12 @@ export default function ImportarCatalogo() {
       return;
     }
     setParsing(true);
+    setProgress({ atual: 0, total: pdfs.length });
     const todos: CatalogProduct[] = [];
+    let i = 0;
     for (const file of pdfs) {
+      i += 1;
+      setProgress({ atual: i, total: pdfs.length });
       try {
         const lidos = await parseCatalogFile(file);
         todos.push(...lidos);
@@ -108,7 +113,11 @@ export default function ImportarCatalogo() {
               </>
             }
           />
-          {parsing && <p className="mt-3 text-sm text-muted-foreground">Lendo PDFs…</p>}
+          {parsing && (
+            <p className="mt-3 text-sm text-muted-foreground">
+              Lendo PDFs… {progress.total > 0 ? `${progress.atual}/${progress.total}` : ""}
+            </p>
+          )}
         </CardContent>
       </Card>
 

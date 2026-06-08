@@ -52,16 +52,23 @@ async function parseFile(file: File): Promise<PreviewNota> {
   return buildPreviewNota(items, "pdf", file.name, hoje);
 }
 
+const MAX_PREVIEW_ROWS = 400;
+
 export default function Importar() {
   const queryClient = useQueryClient();
   const [notas, setNotas] = useState<PreviewNota[]>([]);
   const [parsing, setParsing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [progress, setProgress] = useState({ atual: 0, total: 0 });
 
   const handleFiles = async (files: File[]) => {
     setParsing(true);
+    setProgress({ atual: 0, total: files.length });
     const novas: PreviewNota[] = [];
+    let i = 0;
     for (const file of files) {
+      i += 1;
+      setProgress({ atual: i, total: files.length });
       try {
         const nota = await parseFile(file);
         if (nota.rows.length === 0) {
@@ -168,6 +175,17 @@ export default function Importar() {
   const totalRows = notas.reduce((acc, n) => acc + n.rows.length, 0);
   const hasNotas = notas.length > 0;
 
+  // Limita a renderização do preview por orçamento de linhas (evita travar a tela
+  // com milhares de inputs). Todas as notas continuam no estado e são salvas.
+  const notasVisiveis: PreviewNota[] = [];
+  let rowsAcc = 0;
+  for (const n of notas) {
+    if (rowsAcc >= MAX_PREVIEW_ROWS) break;
+    notasVisiveis.push(n);
+    rowsAcc += n.rows.length;
+  }
+  const ocultas = notas.length - notasVisiveis.length;
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -181,7 +199,9 @@ export default function Importar() {
         <CardContent className="pt-6">
           <ImportDropzone onFiles={handleFiles} disabled={parsing || saving} />
           {parsing && (
-            <p className="mt-3 text-sm text-muted-foreground">Lendo arquivos…</p>
+            <p className="mt-3 text-sm text-muted-foreground">
+              Lendo arquivos… {progress.total > 0 ? `${progress.atual}/${progress.total}` : ""}
+            </p>
           )}
         </CardContent>
       </Card>
@@ -202,7 +222,13 @@ export default function Importar() {
             </div>
           </CardHeader>
           <CardContent>
-            <ImportPreviewTable notas={notas} onRowChange={handleRowChange} />
+            <ImportPreviewTable notas={notasVisiveis} onRowChange={handleRowChange} />
+            {ocultas > 0 && (
+              <p className="mt-4 text-sm text-muted-foreground">
+                + {ocultas} nota(s) ocultas do preview (muitos itens) — todas serão salvas ao
+                clicar em “Salvar tudo”.
+              </p>
+            )}
           </CardContent>
         </Card>
       )}

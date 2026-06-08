@@ -3,10 +3,17 @@ import type { Database } from "@/integrations/supabase/types";
 type ItemInsert = Database["public"]["Tables"]["itens_nota"]["Insert"];
 type ItemRow = Database["public"]["Tables"]["itens_nota"]["Row"];
 
+/** Insere itens em lotes (evita estourar o payload em notas grandes). */
 export async function insertItens(itens: ItemInsert[]): Promise<ItemRow[]> {
-  const { data, error } = await supabase.from("itens_nota").insert(itens).select();
-  if (error) throw error;
-  return data ?? [];
+  const LOTE = 500;
+  const out: ItemRow[] = [];
+  for (let i = 0; i < itens.length; i += LOTE) {
+    const slice = itens.slice(i, i + LOTE);
+    const { data, error } = await supabase.from("itens_nota").insert(slice).select();
+    if (error) throw error;
+    if (data) out.push(...data);
+  }
+  return out;
 }
 /** Itens vinculados a um mestre, com a data de emissão da nota (join). */
 export async function listItensComData(): Promise<Array<ItemRow & { data_emissao: string; nota_numero: string | null }>> {
