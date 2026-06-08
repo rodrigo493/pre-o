@@ -41,6 +41,7 @@ export default function EditarMontadoDialog({
 }: EditarMontadoDialogProps) {
   const queryClient = useQueryClient();
   const [nome, setNome] = useState("");
+  const [codigo, setCodigo] = useState("");
   const [categoria, setCategoria] = useState("");
   const [custo, setCusto] = useState("");
   const [preco, setPreco] = useState("");
@@ -48,6 +49,7 @@ export default function EditarMontadoDialog({
 
   useEffect(() => {
     setNome(produto?.nome ?? "");
+    setCodigo(produto?.codigo ?? "");
     setCategoria(produto?.categoria ?? "");
     setCusto(produto?.custo_manual != null ? String(produto.custo_manual) : "");
     setPreco(produto?.preco_manual != null ? String(produto.preco_manual) : "");
@@ -75,6 +77,7 @@ export default function EditarMontadoDialog({
     try {
       await updateProdutoMestre(produto.id, {
         nome: nomeLimpo,
+        codigo: codigo.trim() === "" ? null : codigo.trim(),
         categoria: categoria.trim() === "" ? null : categoria.trim(),
         custo_manual: custoNum,
         preco_manual: precoNum,
@@ -107,6 +110,15 @@ export default function EditarMontadoDialog({
               id="edit-nome"
               value={nome}
               onChange={(e) => setNome(e.target.value)}
+              disabled={busy}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="edit-codigo">Código</Label>
+            <Input
+              id="edit-codigo"
+              value={codigo}
+              onChange={(e) => setCodigo(e.target.value)}
               disabled={busy}
             />
           </div>

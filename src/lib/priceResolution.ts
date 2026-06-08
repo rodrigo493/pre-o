@@ -19,6 +19,7 @@ export interface ProdutoMestre {
   tipo: ProdutoTipo;
   custoManual?: number | null;
   precoManual?: number | null;
+  codigo?: string | null;
 }
 
 export interface PriceOrigem {

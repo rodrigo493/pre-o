@@ -2,8 +2,8 @@ export interface Database {
   public: {
     Tables: {
       produtos_mestre: {
-        Row: { id: string; nome: string; categoria: string | null; tipo: "comprado" | "montado"; custo_manual: number | null; preco_manual: number | null; created_at: string };
-        Insert: { id?: string; nome: string; categoria?: string | null; tipo?: "comprado" | "montado"; custo_manual?: number | null; preco_manual?: number | null; created_at?: string };
+        Row: { id: string; nome: string; categoria: string | null; tipo: "comprado" | "montado"; custo_manual: number | null; preco_manual: number | null; codigo: string | null; created_at: string };
+        Insert: { id?: string; nome: string; categoria?: string | null; tipo?: "comprado" | "montado"; custo_manual?: number | null; preco_manual?: number | null; codigo?: string | null; created_at?: string };
         Update: Partial<Database["public"]["Tables"]["produtos_mestre"]["Insert"]>;
         Relationships: [];
       };

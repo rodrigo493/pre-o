@@ -33,7 +33,11 @@ export default function Produtos() {
   const filtradas = useMemo(() => {
     const q = busca.trim().toLowerCase();
     if (!q) return linhas;
-    return linhas.filter((l) => l.nome.toLowerCase().includes(q));
+    return linhas.filter(
+      (l) =>
+        l.nome.toLowerCase().includes(q) ||
+        (l.codigo ?? "").toLowerCase().includes(q),
+    );
   }, [linhas, busca]);
 
   const abrirEdicao = (linha: LinhaProduto) => {
@@ -106,7 +110,7 @@ export default function Produtos() {
           <Input
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
-            placeholder="Buscar por nome…"
+            placeholder="Buscar por nome ou código…"
             className="max-w-sm no-print"
           />
         </CardHeader>
@@ -129,6 +133,7 @@ export default function Produtos() {
             <Table>
               <TableHeader>
                 <TableRow className="[&_th]:text-[11px] [&_th]:font-medium [&_th]:uppercase [&_th]:tracking-wide [&_th]:text-muted-foreground">
+                  <TableHead>Código</TableHead>
                   <TableHead>Nome</TableHead>
                   <TableHead>Categoria</TableHead>
                   <TableHead>Tipo</TableHead>
@@ -146,6 +151,9 @@ export default function Produtos() {
                   const r = linha.resolvido;
                   return (
                     <TableRow key={linha.id}>
+                      <TableCell className="font-mono-num text-muted-foreground">
+                        {linha.codigo ?? "—"}
+                      </TableCell>
                       <TableCell className="font-medium">{linha.nome}</TableCell>
                       <TableCell>{linha.categoria ?? "—"}</TableCell>
                       <TableCell className="capitalize">{linha.tipo}</TableCell>

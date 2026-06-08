@@ -22,7 +22,7 @@ export function useProdutosResolvidos() {
         porMestre.set(it.produto_mestre_id, arr);
       }
       return mestres.map((m) => {
-        const produto: ProdutoMestre = { id: m.id, nome: m.nome, categoria: m.categoria, tipo: m.tipo, custoManual: m.custo_manual, precoManual: m.preco_manual };
+        const produto: ProdutoMestre = { id: m.id, nome: m.nome, categoria: m.categoria, tipo: m.tipo, custoManual: m.custo_manual, precoManual: m.preco_manual, codigo: m.codigo };
         return { ...produto, resolvido: resolvePrice(produto, porMestre.get(m.id) ?? [], cfg, hoje) };
       });
     },

@@ -31,6 +31,7 @@ function errMsg(err: unknown): string {
 
 const montadoSchema = z.object({
   nome: z.string().trim().min(1, "Informe o nome do produto."),
+  codigo: z.string().trim().optional(),
   categoria: z.string().trim().optional(),
   custoManual: z
     .number({ invalid_type_error: "Custo inválido." })
@@ -69,13 +70,14 @@ export default function ProdutoMontado() {
     formState: { errors, isSubmitting },
   } = useForm<MontadoForm>({
     resolver: zodResolver(montadoSchema),
-    defaultValues: { nome: "", categoria: "" },
+    defaultValues: { nome: "", codigo: "", categoria: "" },
   });
 
   const onSubmit = handleSubmit(async (values) => {
     try {
       await createProdutoMestre({
         nome: values.nome,
+        codigo: values.codigo ? values.codigo : null,
         categoria: values.categoria ? values.categoria : null,
         tipo: "montado",
         custo_manual: values.custoManual ?? null,
@@ -84,7 +86,7 @@ export default function ProdutoMontado() {
       queryClient.invalidateQueries({ queryKey: ["produtos-resolvidos"] });
       queryClient.invalidateQueries({ queryKey: ["produtos-mestre"] });
       toast.success(`Produto montado "${values.nome}" criado.`);
-      reset({ nome: "", categoria: "", custoManual: undefined, precoManual: undefined });
+      reset({ nome: "", codigo: "", categoria: "", custoManual: undefined, precoManual: undefined });
     } catch (err) {
       toast.error(`Falha ao criar produto: ${errMsg(err)}`);
     }
@@ -117,6 +119,10 @@ export default function ProdutoMontado() {
                 {errors.nome && (
                   <span className="text-xs text-destructive">{errors.nome.message}</span>
                 )}
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="codigo">Código</Label>
+                <Input id="codigo" placeholder="Ex.: RFM-001" {...register("codigo")} />
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="categoria">Categoria</Label>

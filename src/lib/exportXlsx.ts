@@ -3,6 +3,7 @@ import type { LinhaProduto } from "@/hooks/useProdutosResolvidos";
 
 export function montarLinhasExport(linhas: LinhaProduto[]) {
   return linhas.map((l) => ({
+    "Código": l.codigo ?? "",
     Produto: l.nome,
     Categoria: l.categoria ?? "",
     Tipo: l.tipo,

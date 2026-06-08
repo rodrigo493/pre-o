@@ -20,6 +20,7 @@ on conflict (id) do nothing;
 create or replace function public.api_precos(api_key text)
 returns table (
   id uuid,
+  codigo text,
   nome text,
   categoria text,
   tipo text,
@@ -108,6 +109,7 @@ begin
     end if;
 
     id             := m.id;
+    codigo         := m.codigo;
     nome           := m.nome;
     categoria      := m.categoria;
     tipo           := m.tipo;
