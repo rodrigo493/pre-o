@@ -142,7 +142,7 @@ export default function Produtos() {
                       <TableCell className="text-right tabular-nums">
                         {formatMoeda(r.custoBase)}
                       </TableCell>
-                      <TableCell className="text-right tabular-nums">
+                      <TableCell className="text-right tabular-nums font-semibold text-foreground">
                         {formatMoeda(r.precoVenda)}
                       </TableCell>
                       <TableCell className="text-right tabular-nums">

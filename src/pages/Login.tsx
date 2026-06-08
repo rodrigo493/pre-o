@@ -18,9 +18,12 @@ export default function Login() {
     nav("/produtos", { replace: true });
   }
   return (
-    <div className="min-h-screen grid place-items-center bg-muted/30">
-      <Card className="w-full max-w-sm p-6 space-y-4">
-        <h1 className="text-xl font-semibold">Tabela de Preços — Live</h1>
+    <div className="min-h-screen grid place-items-center bg-background px-4">
+      <Card className="w-full max-w-sm bg-card border-border p-6 space-y-5">
+        <div className="flex flex-col items-center gap-2">
+          <img src="/logo-live.svg" alt="Live" className="h-8 w-auto" />
+          <h1 className="text-sm text-muted-foreground">Tabela de Preços</h1>
+        </div>
         <form onSubmit={entrar} className="space-y-3">
           <div className="space-y-1"><Label>E-mail</Label>
             <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>
