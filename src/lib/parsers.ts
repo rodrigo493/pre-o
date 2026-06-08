@@ -680,10 +680,10 @@ async function initPdfJs() {
   if (_pdfjsLib) return _pdfjsLib;
   const pdfjsLib = await import("pdfjs-dist");
   if (typeof window !== "undefined" && !pdfjsLib.GlobalWorkerOptions.workerSrc) {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-      "pdfjs-dist/build/pdf.worker.min.mjs",
-      import.meta.url
-    ).toString();
+    // ?v=2: cache-bust para forçar refetch do worker em browsers que cachearam
+    // a versão antiga com Content-Type errado (.mjs servido sem MIME de JS).
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString() + "?v=2";
   }
   _pdfjsLib = pdfjsLib;
   return pdfjsLib;
