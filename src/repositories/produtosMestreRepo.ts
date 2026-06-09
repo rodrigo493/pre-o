@@ -56,8 +56,8 @@ export async function upsertCatalogByCodigo(produtos: CatalogUpsert[]): Promise<
   // Separa em lotes HOMOGÊNEOS: novos (sem id → insert) e existentes (com id →
   // update por upsert na PK). Lote misto faz o PostgREST mandar id=null nos novos
   // e viola o not-null (23502).
-  const novos: Insert[] = [];
-  const existentes: Insert[] = [];
+  const paraInserir: Insert[] = [];
+  const paraAtualizar: Insert[] = [];
   for (const p of produtos) {
     const id = idPorCodigo.get(p.codigo);
     const base = {
@@ -68,15 +68,15 @@ export async function upsertCatalogByCodigo(produtos: CatalogUpsert[]): Promise<
       tipo: p.tipo,
       categoria: p.categoria,
     };
-    if (id) existentes.push({ id, ...base });
-    else novos.push(base);
+    if (id) paraAtualizar.push({ id, ...base });
+    else paraInserir.push(base);
   }
 
   const LOTE = 500;
   let total = 0;
 
-  for (let i = 0; i < novos.length; i += LOTE) {
-    const slice = novos.slice(i, i + LOTE);
+  for (let i = 0; i < paraInserir.length; i += LOTE) {
+    const slice = paraInserir.slice(i, i + LOTE);
     const { error, count } = await supabase
       .from("produtos_mestre")
       .insert(slice, { count: "exact" });
@@ -84,8 +84,8 @@ export async function upsertCatalogByCodigo(produtos: CatalogUpsert[]): Promise<
     total += count ?? slice.length;
   }
 
-  for (let i = 0; i < existentes.length; i += LOTE) {
-    const slice = existentes.slice(i, i + LOTE);
+  for (let i = 0; i < paraAtualizar.length; i += LOTE) {
+    const slice = paraAtualizar.slice(i, i + LOTE);
     const { error, count } = await supabase
       .from("produtos_mestre")
       .upsert(slice, { count: "exact" }); // todos têm id → conflito na PK → update
