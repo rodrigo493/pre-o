@@ -146,8 +146,10 @@ export default function Vincular() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Vincular itens</h1>
         <p className="mt-0.5 text-sm text-muted-foreground">
-          Ligue cada item importado a um produto mestre. O código (cProd) fica memorizado
-          para auto-vincular nas próximas notas.
+          À <strong>esquerda</strong>, os itens das suas <strong>notas fiscais</strong> (ainda sem
+          produto). À <strong>direita</strong>, escolha o <strong>produto oficial do catálogo
+          Nomus</strong> para vincular. O código (cProd) fica memorizado para auto-vincular nas
+          próximas notas.
         </p>
       </div>
 
@@ -177,11 +179,19 @@ export default function Vincular() {
           ) : (
             <Table>
               <TableHeader>
+                <TableRow className="[&_th]:text-center [&_th]:text-[11px] [&_th]:font-bold [&_th]:uppercase [&_th]:tracking-wide">
+                  <TableHead colSpan={4} className="border-r bg-muted/50 text-foreground">
+                    Nota Fiscal
+                  </TableHead>
+                  <TableHead className="bg-primary/5 text-primary">
+                    Produto Nomus (catálogo)
+                  </TableHead>
+                </TableRow>
                 <TableRow className="[&_th]:text-[11px] [&_th]:font-medium [&_th]:uppercase [&_th]:tracking-wide [&_th]:text-muted-foreground">
                   <TableHead>cProd</TableHead>
                   <TableHead>Descrição</TableHead>
-                  <TableHead className="text-right">Custo unit.</TableHead>
-                  <TableHead>Unid.</TableHead>
+                  <TableHead className="text-right">Custo</TableHead>
+                  <TableHead className="border-r">Unid.</TableHead>
                   <TableHead>Vincular a</TableHead>
                 </TableRow>
               </TableHeader>
