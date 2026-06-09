@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getConfig, saveConfig } from "@/repositories/configRepo";
+import { apagarTodosOsDados } from "@/repositories/resetRepo";
 import {
   defaultPercentages,
   percentageLabels,
@@ -77,6 +78,26 @@ export default function Configuracoes() {
     toast.info("Valores padrão preenchidos. Clique em Salvar para aplicar.");
   };
 
+  const [apagando, setApagando] = useState(false);
+  const apagarTudo = async () => {
+    const ok = window.confirm(
+      "Apagar TODOS os produtos, notas e vínculos? As configurações de markup são mantidas. Esta ação não pode ser desfeita.",
+    );
+    if (!ok) return;
+    setApagando(true);
+    try {
+      await apagarTodosOsDados();
+      queryClient.invalidateQueries({ queryKey: ["produtos-resolvidos"] });
+      queryClient.invalidateQueries({ queryKey: ["produtos-mestre"] });
+      queryClient.invalidateQueries({ queryKey: ["pendentes"] });
+      toast.success("Tudo apagado. Pode importar o catálogo oficial.");
+    } catch (err) {
+      toast.error(`Falha ao apagar: ${errMsg(err)}`);
+    } finally {
+      setApagando(false);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -135,6 +156,28 @@ export default function Configuracoes() {
               </div>
             </form>
           )}
+        </CardContent>
+      </Card>
+
+      <Card className="rounded-2xl border-destructive/40 shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-base font-semibold text-destructive">Zona de perigo</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          <p className="text-sm text-muted-foreground">
+            Apaga <strong>todos os produtos, notas e vínculos</strong> para recomeçar do zero
+            (as configurações de markup são mantidas). Útil antes de importar o catálogo oficial.
+          </p>
+          <div>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => void apagarTudo()}
+              disabled={apagando}
+            >
+              {apagando ? "Apagando…" : "Apagar todos os dados"}
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>
