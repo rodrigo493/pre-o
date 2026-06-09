@@ -135,7 +135,7 @@ export default function VincularRow({
                   disabled={busy}
                 />
                 {query.trim() && !selectedId && resultados.length > 0 && (
-                  <ul className="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-md border bg-popover p-1 shadow-md sm:w-72">
+                  <ul className="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-md border border-border bg-white p-1 shadow-lg sm:w-72">
                     {resultados.map((m) => (
                       <li key={m.id}>
                         <button
