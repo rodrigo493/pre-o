@@ -29,11 +29,15 @@ export function useProdutosResolvidos() {
         unidade: m.unidade, unidadeSecundaria: m.unidade_secundaria, fatorConversao: m.fator_conversao,
       });
 
-      // Passo 1: custo base de cada produto (componentes ainda não somados).
-      const custoBasePorId = new Map<string, number | null>();
+      const mestrePorId = new Map(mestres.map((m) => [m.id, m]));
+
+      // Custo de matéria-prima (comprado) = maior custo das notas (sem componentes).
+      const custoCompradoPorId = new Map<string, number | null>();
       for (const m of mestres) {
-        const r = resolvePrice(base(m), porMestre.get(m.id) ?? [], cfg, hoje);
-        custoBasePorId.set(m.id, r.custoBase);
+        if (m.tipo !== "montado") {
+          const r = resolvePrice(base(m), porMestre.get(m.id) ?? [], cfg, hoje);
+          custoCompradoPorId.set(m.id, r.custoBase);
+        }
       }
 
       // Componentes agrupados por montado.
@@ -44,17 +48,35 @@ export function useProdutosResolvidos() {
         compPorMontado.set(c.montado_id, arr);
       }
 
-      // Passo 2: resolve cada produto; montados somam o custo dos componentes.
+      // Custo recursivo: montagem soma matérias-primas + outras montagens (com memo e guarda de ciclo).
+      const memo = new Map<string, number>();
+      const visitando = new Set<string>();
+      const custoDe = (id: string): number => {
+        const cache = memo.get(id);
+        if (cache != null) return cache;
+        const m = mestrePorId.get(id);
+        if (!m) return 0;
+        if (m.tipo !== "montado") {
+          const v = custoCompradoPorId.get(id) ?? 0;
+          memo.set(id, v);
+          return v;
+        }
+        if (visitando.has(id)) return 0; // ciclo: evita recursão infinita
+        visitando.add(id);
+        const comps = compPorMontado.get(id) ?? [];
+        const v =
+          comps.length > 0
+            ? comps.reduce((s, c) => s + custoDe(c.componenteId) * c.qtd, 0)
+            : Number(m.custo_manual ?? 0);
+        visitando.delete(id);
+        memo.set(id, v);
+        return v;
+      };
+
       return mestres.map((m) => {
         const produto = base(m);
-        if (m.tipo === "montado") {
-          const comps = compPorMontado.get(m.id);
-          if (comps && comps.length > 0) {
-            produto.custoComponentes = comps.reduce(
-              (s, c) => s + (custoBasePorId.get(c.componenteId) ?? 0) * c.qtd,
-              0,
-            );
-          }
+        if (m.tipo === "montado" && (compPorMontado.get(m.id)?.length ?? 0) > 0) {
+          produto.custoComponentes = custoDe(m.id);
         }
         return {
           ...produto,
