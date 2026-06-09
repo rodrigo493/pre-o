@@ -51,6 +51,22 @@ function isUnitLike(raw: string): boolean {
   return KNOWN_UNITS.has(normalizeUnit(raw));
 }
 
+/** Prefixos de código que indicam produto FABRICADO (montagem) na Live. */
+const FABRICADO_PREFIXES = new Set(["TB", "MO", "MOF", "LA", "US"]);
+
+/** Pega o prefixo alfabético inicial do código (antes de ponto/traço/número). */
+function prefixoCodigo(codigo: string): string {
+  const m = codigo.trim().toUpperCase().match(/^[A-ZÀ-Ý]+/);
+  return m ? m[0] : "";
+}
+
+/** Decide o tipo: fabricado (montado) por prefixo de código OU "Fabricado" no Ressuprimento. */
+function decidirTipo(codigo: string, ressupText: string): CatalogTipo {
+  if (FABRICADO_PREFIXES.has(prefixoCodigo(codigo))) return "montado";
+  if (/fabricado/i.test(ressupText)) return "montado";
+  return "comprado";
+}
+
 interface ColumnAnchors {
   codigoX: number;
   descricaoX: number;
@@ -166,7 +182,7 @@ export function parseCatalogFromPositionedItems(
           .filter((c) => c.x >= descricaoEnd && c.x < anchors!.tipoX && isUnitLike(c.str))
           .sort((a, b) => a.x - b.x);
         const ressupText = cells.map((c) => c.str).join(" ");
-        const tipo: CatalogTipo = /fabricado/i.test(ressupText) ? "montado" : "comprado";
+        const tipo: CatalogTipo = decidirTipo(codigo, ressupText);
 
         pending = {
           codigo,

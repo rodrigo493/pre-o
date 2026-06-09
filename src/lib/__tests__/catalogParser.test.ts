@@ -112,6 +112,20 @@ describe("parseCatalogFromPositionedItems", () => {
     expect(result[1]).toMatchObject({ codigo: "MUC.669", nome: "NIPLE REDUÇÃO" });
   });
 
+  it("classifica como montado por prefixo de código (US/LA/MO/MOF/TB) mesmo se Ressuprimento=Comprado", () => {
+    const page: PDFTextItem[] = [
+      ...header(10),
+      item("US.100", 50, 30),
+      item("EIXO USINADO", 200, 30),
+      item("UNIDADE", 320, 30),
+      item("Matéria prima", 470, 30),
+      item("08 - CORTE", 540, 30),
+      item("Comprado", 660, 30),
+    ];
+    const result = parseCatalogFromPositionedItems([page]);
+    expect(result[0]).toMatchObject({ codigo: "US.100", tipo: "montado" });
+  });
+
   it("ignora linhas sem código ou sem descrição", () => {
     const page: PDFTextItem[] = [
       ...header(10),
