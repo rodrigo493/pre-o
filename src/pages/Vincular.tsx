@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -13,7 +14,12 @@ import VincularRow from "@/components/VincularRow";
 import { listItensPendentes, vincularItem } from "@/repositories/itensNotaRepo";
 import { listProdutosMestre, createProdutoMestre } from "@/repositories/produtosMestreRepo";
 import { upsertVinculo } from "@/repositories/vinculosRepo";
-import { pendentesComMesmoCprod, normalizeCprod } from "@/lib/autoLink";
+import {
+  pendentesComMesmoCprod,
+  normalizeCprod,
+  construirMapaDescricao,
+  aplicarAutoVinculoPorDescricao,
+} from "@/lib/autoLink";
 import type { Database } from "@/integrations/supabase/types";
 
 type ItemRow = Database["public"]["Tables"]["itens_nota"]["Row"];
@@ -25,6 +31,7 @@ function errMsg(err: unknown): string {
 export default function Vincular() {
   const queryClient = useQueryClient();
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [autoBusy, setAutoBusy] = useState(false);
 
   const pendentesQuery = useQuery({
     queryKey: ["pendentes"],
@@ -88,6 +95,38 @@ export default function Vincular() {
     void linkToMestre(item, mestreId, lote);
   };
 
+  /** Vincula em massa todos os pendentes com descrição IDÊNTICA a um produto oficial. */
+  const autoVincularDescricao = async () => {
+    const mapa = construirMapaDescricao(mestres.map((m) => ({ id: m.id, nome: m.nome })));
+    const { vinculados } = aplicarAutoVinculoPorDescricao(
+      pendentes.map((p) => ({ id: p.id, descricao: p.descricao })),
+      mapa,
+    );
+    if (vinculados.length === 0) {
+      toast.info("Nenhum pendente com descrição idêntica a um produto.");
+      return;
+    }
+    setAutoBusy(true);
+    try {
+      const porId = new Map(pendentes.map((p) => [p.id, p]));
+      const memo = new Set<string>();
+      for (const v of vinculados) {
+        await vincularItem(v.id, v.produtoMestreId);
+        const it = porId.get(v.id);
+        if (it && it.cprod && !memo.has(normalizeCprod(it.cprod))) {
+          memo.add(normalizeCprod(it.cprod));
+          await upsertVinculo(it.cprod, v.produtoMestreId);
+        }
+      }
+      invalidate();
+      toast.success(`${vinculados.length} item(ns) vinculados por descrição idêntica.`);
+    } catch (err) {
+      toast.error(`Falha no auto-vínculo: ${errMsg(err)}`);
+    } finally {
+      setAutoBusy(false);
+    }
+  };
+
   const handleCriarMestre = async (item: ItemRow, nome: string, lote: boolean) => {
     setBusyId(item.id);
     try {
@@ -113,10 +152,20 @@ export default function Vincular() {
       </div>
 
       <Card className="rounded-2xl shadow-sm">
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between gap-4">
           <CardTitle className="text-base font-semibold">
             Fila de pendentes{!loading ? ` (${pendentes.length})` : ""}
           </CardTitle>
+          {pendentes.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={autoBusy || mestres.length === 0}
+              onClick={() => void autoVincularDescricao()}
+            >
+              {autoBusy ? "Vinculando…" : "Auto-vincular idênticos"}
+            </Button>
+          )}
         </CardHeader>
         <CardContent>
           {loading ? (

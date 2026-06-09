@@ -1,6 +1,9 @@
 import { describe, it, expect } from "vitest";
 import {
   aplicarAutoVinculo,
+  aplicarAutoVinculoPorDescricao,
+  construirMapaDescricao,
+  normalizeDescricao,
   pendentesComMesmoCprod,
   normalizeCprod,
   type Vinculo,
@@ -56,5 +59,37 @@ describe("pendentesComMesmoCprod", () => {
 describe("normalizeCprod", () => {
   it("apara espaços e converte para maiúsculas", () => {
     expect(normalizeCprod("  abc-1 ")).toBe("ABC-1");
+  });
+});
+
+describe("normalizeDescricao", () => {
+  it("remove acento, baixa caixa e colapsa espaços", () => {
+    expect(normalizeDescricao("  Chapa  LISA  2,0mm Aço ")).toBe("chapa lisa 2,0mm aco");
+  });
+});
+
+describe("auto-vínculo por descrição", () => {
+  const oficiais = [
+    { id: "m1", nome: "Reformer Studio" },
+    { id: "m2", nome: "CHAPA LISA 2,0MM" },
+    { id: "m3", nome: "Reformer Studio" }, // duplicado → ignorado
+  ];
+  const mapa = construirMapaDescricao(oficiais);
+
+  it("mapa mantém o primeiro id em descrições duplicadas", () => {
+    expect(mapa.get("reformer studio")).toBe("m1");
+    expect(mapa.size).toBe(2);
+  });
+
+  it("vincula item com descrição idêntica (ignorando acento/caixa/espaços)", () => {
+    const r = aplicarAutoVinculoPorDescricao(
+      [
+        { id: "i1", descricao: "reformer  studio" },
+        { id: "i2", descricao: "Produto sem match" },
+      ],
+      mapa,
+    );
+    expect(r.vinculados).toEqual([{ id: "i1", produtoMestreId: "m1" }]);
+    expect(r.pendentes.map((p) => p.id)).toEqual(["i2"]);
   });
 });

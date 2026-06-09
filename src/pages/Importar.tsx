@@ -21,10 +21,15 @@ import {
   type PreviewNota,
   type PreviewRow,
 } from "@/lib/importPreview";
-import { aplicarAutoVinculo } from "@/lib/autoLink";
+import {
+  aplicarAutoVinculo,
+  aplicarAutoVinculoPorDescricao,
+  construirMapaDescricao,
+} from "@/lib/autoLink";
 import { createNota } from "@/repositories/notasRepo";
 import { insertItens } from "@/repositories/itensNotaRepo";
 import { listVinculos } from "@/repositories/vinculosRepo";
+import { listProdutosMestre } from "@/repositories/produtosMestreRepo";
 
 async function parseFile(file: File): Promise<PreviewNota> {
   const hoje = todayISO();
@@ -110,7 +115,8 @@ export default function Importar() {
     let falhas = 0;
 
     try {
-      const vinculos = await listVinculos();
+      const [vinculos, oficiais] = await Promise.all([listVinculos(), listProdutosMestre()]);
+      const mapaDesc = construirMapaDescricao(oficiais.map((p) => ({ id: p.id, nome: p.nome })));
 
       for (const nota of notas) {
         const validRows = nota.rows.filter((r) => r.custo_unitario > 0);
@@ -125,11 +131,20 @@ export default function Importar() {
             arquivo_nome: nota.arquivo_nome,
           });
 
+          // 1) Auto-vínculo pela memória do código (cProd).
           const { vinculados } = aplicarAutoVinculo(
             validRows.map((r) => ({ id: r.id, cprod: r.cprod })),
             vinculos,
           );
           const mestrePorRowId = new Map(vinculados.map((v) => [v.id, v.produtoMestreId]));
+
+          // 2) Para os restantes, auto-vínculo por descrição IDÊNTICA ao produto oficial.
+          const restantes = validRows.filter((r) => !mestrePorRowId.has(r.id));
+          const { vinculados: porDesc } = aplicarAutoVinculoPorDescricao(
+            restantes.map((r) => ({ id: r.id, descricao: r.descricao })),
+            mapaDesc,
+          );
+          for (const v of porDesc) mestrePorRowId.set(v.id, v.produtoMestreId);
 
           await insertItens(
             validRows.map((r) => ({
@@ -144,8 +159,8 @@ export default function Importar() {
           );
 
           totalSalvos += validRows.length;
-          totalAuto += vinculados.length;
-          totalPendentes += validRows.length - vinculados.length;
+          totalAuto += mestrePorRowId.size;
+          totalPendentes += validRows.length - mestrePorRowId.size;
         } catch (err) {
           falhas += 1;
           const msg = err instanceof Error ? err.message : "erro desconhecido";
