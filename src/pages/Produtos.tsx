@@ -47,7 +47,10 @@ export default function Produtos() {
     const q = busca.trim().toLowerCase();
     return linhas.filter((l) => {
       const matchBusca =
-        !q || l.nome.toLowerCase().includes(q) || (l.codigo ?? "").toLowerCase().includes(q);
+        !q ||
+        l.nome.toLowerCase().includes(q) ||
+        (l.codigo ?? "").toLowerCase().includes(q) ||
+        (l.categoria ?? "").toLowerCase().includes(q);
       const matchGrupo = !grupo || l.categoria === grupo;
       return matchBusca && matchGrupo;
     });
@@ -139,7 +142,7 @@ export default function Produtos() {
             <Input
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
-              placeholder="Buscar por nome ou código…"
+              placeholder="Buscar por nome, código ou grupo…"
               className="max-w-sm"
             />
             <select
@@ -169,7 +172,9 @@ export default function Produtos() {
             </p>
           ) : filtradas.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Nenhum produto encontrado para “{busca}”.
+              Nenhum produto encontrado
+              {busca ? ` para “${busca}”` : ""}
+              {grupo ? ` no grupo “${grupo}”` : ""}.
             </p>
           ) : (
             <Table>
