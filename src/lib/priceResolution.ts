@@ -25,6 +25,8 @@ export interface ProdutoMestre {
   unidade?: string | null;
   unidadeSecundaria?: string | null;
   fatorConversao?: number | null;
+  /** Custo total dos componentes (montado): soma de custo×qtd. null = sem composição. */
+  custoComponentes?: number | null;
 }
 
 export interface PriceOrigem {
@@ -84,9 +86,17 @@ export function resolvePrice(
     ? { notaId: maior.item.notaId, notaNumero: maior.item.notaNumero, dataEmissao: maior.item.dataEmissao }
     : null;
 
+  // Custo do montado = soma dos componentes (se houver composição); senão custo manual.
+  const custoMontado =
+    produto.tipo === "montado"
+      ? produto.custoComponentes != null
+        ? produto.custoComponentes
+        : produto.custoManual ?? null
+      : null;
+
   // 1. Override manual (qualquer tipo)
   if (produto.precoManual != null) {
-    const custoBase = produto.tipo === "montado" ? produto.custoManual ?? null : custoComprado;
+    const custoBase = produto.tipo === "montado" ? custoMontado : custoComprado;
     return {
       precoVenda: produto.precoManual,
       custoBase,
@@ -98,11 +108,24 @@ export function resolvePrice(
     };
   }
 
-  // 2. Montado sem override: preço manual é obrigatório; sem ele → sem_preco_manual
+  // 2. Montado: preço calculado pela composição (custo dos componentes + markup).
   if (produto.tipo === "montado") {
+    if (custoMontado != null && custoMontado > 0) {
+      const preco = calculateSellingPrice(custoMontado, config, 0).precoComIPI;
+      return {
+        precoVenda: preco,
+        custoBase: custoMontado,
+        margemPercent: margem(preco, custoMontado),
+        status: "ok",
+        origem: null,
+        numNotasPeriodo: 0,
+        conversaoPendente: false,
+      };
+    }
+    // Sem composição e sem preço manual → falta definir.
     return {
       precoVenda: null,
-      custoBase: produto.custoManual ?? null,
+      custoBase: custoMontado,
       margemPercent: null,
       status: "sem_preco_manual",
       origem: null,

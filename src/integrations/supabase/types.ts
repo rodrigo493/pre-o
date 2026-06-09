@@ -48,6 +48,27 @@ export interface Database {
           },
         ];
       };
+      componentes_montado: {
+        Row: { id: string; montado_id: string; componente_id: string; quantidade: number; created_at: string };
+        Insert: { id?: string; montado_id: string; componente_id: string; quantidade?: number; created_at?: string };
+        Update: Partial<Database["public"]["Tables"]["componentes_montado"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "componentes_montado_montado_id_fkey";
+            columns: ["montado_id"];
+            isOneToOne: false;
+            referencedRelation: "produtos_mestre";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "componentes_montado_componente_id_fkey";
+            columns: ["componente_id"];
+            isOneToOne: false;
+            referencedRelation: "produtos_mestre";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       config_markup: {
         Row: { id: number; vendas: number; marketing: number; custo_operacional: number; ipi: number; icms: number; pis: number; cofins: number; csll: number; ir: number; lucro: number; desgaste_maquinas: number; frete: number };
         Insert: Partial<Database["public"]["Tables"]["config_markup"]["Row"]> & { id?: number };

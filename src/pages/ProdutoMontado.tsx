@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,11 +16,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  listProdutosMestre,
-  createProdutoMestre,
-} from "@/repositories/produtosMestreRepo";
-import { formatCurrency } from "@/lib/pricing";
+import PriceBadge from "@/components/PriceBadge";
+import { createProdutoMestre } from "@/repositories/produtosMestreRepo";
+import { useProdutosResolvidos, type LinhaProduto } from "@/hooks/useProdutosResolvidos";
+import { formatMargem, formatMoeda } from "@/lib/produtoFormat";
 import EditarMontadoDialog, {
   type ProdutoMontadoRow,
 } from "@/components/EditarMontadoDialog";
@@ -33,30 +32,16 @@ const montadoSchema = z.object({
   nome: z.string().trim().min(1, "Informe o nome do produto."),
   codigo: z.string().trim().optional(),
   categoria: z.string().trim().optional(),
-  custoManual: z
-    .number({ invalid_type_error: "Custo inválido." })
-    .min(0, "Custo não pode ser negativo.")
-    .optional(),
-  precoManual: z
-    .number({ invalid_type_error: "Informe um preço." })
-    .positive("O preço de venda deve ser maior que zero."),
 });
 
 type MontadoForm = z.infer<typeof montadoSchema>;
-
-function margemSobrePreco(custo: number, preco: number): number {
-  return ((preco - custo) / preco) * 100;
-}
 
 export default function ProdutoMontado() {
   const queryClient = useQueryClient();
   const [editando, setEditando] = useState<ProdutoMontadoRow | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  const produtosQuery = useQuery({
-    queryKey: ["produtos-mestre"],
-    queryFn: listProdutosMestre,
-  });
+  const produtosQuery = useProdutosResolvidos();
 
   const montados = useMemo(
     () => (produtosQuery.data ?? []).filter((p) => p.tipo === "montado"),
@@ -75,25 +60,39 @@ export default function ProdutoMontado() {
 
   const onSubmit = handleSubmit(async (values) => {
     try {
-      await createProdutoMestre({
+      const novo = await createProdutoMestre({
         nome: values.nome,
         codigo: values.codigo ? values.codigo : null,
         categoria: values.categoria ? values.categoria : null,
         tipo: "montado",
-        custo_manual: values.custoManual ?? null,
-        preco_manual: values.precoManual,
       });
       queryClient.invalidateQueries({ queryKey: ["produtos-resolvidos"] });
       queryClient.invalidateQueries({ queryKey: ["produtos-mestre"] });
-      toast.success(`Produto montado "${values.nome}" criado.`);
-      reset({ nome: "", codigo: "", categoria: "", custoManual: undefined, precoManual: undefined });
+      toast.success(`Produto montado "${values.nome}" criado. Adicione os componentes.`);
+      reset({ nome: "", codigo: "", categoria: "" });
+      // Abre direto a composição do novo produto.
+      setEditando(novo);
+      setDialogOpen(true);
     } catch (err) {
       toast.error(`Falha ao criar produto: ${errMsg(err)}`);
     }
   });
 
-  const abrirEdicao = (linha: ProdutoMontadoRow) => {
-    setEditando(linha);
+  const abrirEdicao = (linha: LinhaProduto) => {
+    setEditando({
+      id: linha.id,
+      nome: linha.nome,
+      codigo: linha.codigo ?? null,
+      categoria: linha.categoria ?? null,
+      tipo: "montado",
+      custo_manual: linha.custoManual ?? null,
+      preco_manual: linha.precoManual ?? null,
+      unidade: linha.unidade ?? null,
+      unidade_secundaria: linha.unidadeSecundaria ?? null,
+      fator_conversao: linha.fatorConversao ?? null,
+      mais_vendido: linha.maisVendido,
+      created_at: "",
+    });
     setDialogOpen(true);
   };
 
@@ -102,7 +101,8 @@ export default function ProdutoMontado() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Produto montado</h1>
         <p className="mt-0.5 text-sm text-muted-foreground">
-          Produtos com custo e preço definidos manualmente (sem markup automático).
+          Produtos compostos por outros produtos Nomus. O custo soma os componentes e o preço sai
+          do markup (impostos + lucro). Você pode travar um preço manual se quiser.
         </p>
       </div>
 
@@ -112,54 +112,26 @@ export default function ProdutoMontado() {
         </CardHeader>
         <CardContent>
           <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-3">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="nome">Nome *</Label>
-                <Input id="nome" placeholder="Ex.: Reformer montado" {...register("nome")} />
+                <Input id="nome" placeholder="Ex.: Combo Studio Classic" {...register("nome")} />
                 {errors.nome && (
                   <span className="text-xs text-destructive">{errors.nome.message}</span>
                 )}
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="codigo">Código</Label>
-                <Input id="codigo" placeholder="Ex.: RFM-001" {...register("codigo")} />
+                <Input id="codigo" placeholder="Ex.: KIT.V5.130" {...register("codigo")} />
               </div>
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="categoria">Categoria</Label>
-                <Input id="categoria" placeholder="Ex.: Equipamentos" {...register("categoria")} />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="custoManual">Custo manual (R$)</Label>
-                <Input
-                  id="custoManual"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="0,00"
-                  {...register("custoManual", { valueAsNumber: true })}
-                />
-                {errors.custoManual && (
-                  <span className="text-xs text-destructive">{errors.custoManual.message}</span>
-                )}
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="precoManual">Preço de venda (R$) *</Label>
-                <Input
-                  id="precoManual"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="0,00"
-                  {...register("precoManual", { valueAsNumber: true })}
-                />
-                {errors.precoManual && (
-                  <span className="text-xs text-destructive">{errors.precoManual.message}</span>
-                )}
+                <Label htmlFor="categoria">Categoria/Grupo</Label>
+                <Input id="categoria" placeholder="Ex.: 01 - PRODUTO ACABADO" {...register("categoria")} />
               </div>
             </div>
             <div>
               <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? "Salvando…" : "Criar produto montado"}
+                {isSubmitting ? "Criando…" : "Criar e montar composição"}
               </Button>
             </div>
           </form>
@@ -187,38 +159,41 @@ export default function ProdutoMontado() {
             <Table>
               <TableHeader>
                 <TableRow className="[&_th]:text-[11px] [&_th]:font-medium [&_th]:uppercase [&_th]:tracking-wide [&_th]:text-muted-foreground">
+                  <TableHead>Código</TableHead>
                   <TableHead>Nome</TableHead>
                   <TableHead>Categoria</TableHead>
-                  <TableHead className="text-right">Custo manual</TableHead>
+                  <TableHead className="text-right">Custo (composição)</TableHead>
                   <TableHead className="text-right">Preço de venda</TableHead>
                   <TableHead className="text-right">Margem</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {montados.map((p) => {
-                  const custo = p.custo_manual;
-                  const preco = p.preco_manual;
-                  const margem =
-                    custo != null && preco != null && preco > 0
-                      ? margemSobrePreco(custo, preco)
-                      : null;
+                  const r = p.resolvido;
                   return (
                     <TableRow key={p.id}>
+                      <TableCell className="font-mono-num text-muted-foreground">
+                        {p.codigo ?? "—"}
+                      </TableCell>
                       <TableCell className="font-medium">{p.nome}</TableCell>
                       <TableCell>{p.categoria ?? "—"}</TableCell>
                       <TableCell className="text-right font-mono-num text-muted-foreground">
-                        {custo != null ? formatCurrency(custo) : "—"}
+                        {formatMoeda(r.custoBase)}
                       </TableCell>
                       <TableCell className="text-right font-mono-num font-semibold text-foreground">
-                        {preco != null ? formatCurrency(preco) : "—"}
+                        {formatMoeda(r.precoVenda)}
                       </TableCell>
                       <TableCell className="text-right font-mono-num text-muted-foreground">
-                        {margem != null ? `${margem.toFixed(1)}%` : "—"}
+                        {formatMargem(r.margemPercent)}
+                      </TableCell>
+                      <TableCell>
+                        <PriceBadge status={r.status} />
                       </TableCell>
                       <TableCell className="text-right">
                         <Button variant="ghost" size="sm" onClick={() => abrirEdicao(p)}>
-                          Editar
+                          Composição
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -230,11 +205,7 @@ export default function ProdutoMontado() {
         </CardContent>
       </Card>
 
-      <EditarMontadoDialog
-        produto={editando}
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-      />
+      <EditarMontadoDialog produto={editando} open={dialogOpen} onOpenChange={setDialogOpen} />
     </div>
   );
 }

@@ -123,6 +123,36 @@ describe("resolvePrice — override manual", () => {
   });
 });
 
+describe("resolvePrice — montado por composição", () => {
+  it("calcula preço a partir do custo dos componentes + markup", () => {
+    const produto: ProdutoMestre = {
+      id: "p1", nome: "Combo", tipo: "montado", custoComponentes: 1000,
+    };
+    const r = resolvePrice(produto, [], cfg, HOJE);
+    expect(r.status).toBe("ok");
+    expect(r.custoBase).toBe(1000);
+    const esperado = calculateSellingPrice(1000, cfg).precoComIPI;
+    expect(r.precoVenda).toBeCloseTo(esperado, 2);
+  });
+
+  it("preço manual trava e mostra custo da composição na margem", () => {
+    const produto: ProdutoMestre = {
+      id: "p1", nome: "Combo", tipo: "montado", custoComponentes: 1000, precoManual: 3000,
+    };
+    const r = resolvePrice(produto, [], cfg, HOJE);
+    expect(r.status).toBe("travado");
+    expect(r.precoVenda).toBe(3000);
+    expect(r.custoBase).toBe(1000);
+  });
+
+  it("sem composição e sem preço manual → sem_preco_manual", () => {
+    const produto: ProdutoMestre = { id: "p1", nome: "Combo", tipo: "montado" };
+    const r = resolvePrice(produto, [], cfg, HOJE);
+    expect(r.status).toBe("sem_preco_manual");
+    expect(r.precoVenda).toBeNull();
+  });
+});
+
 describe("resolvePrice — montado", () => {
   it("usa preço manual e calcula margem contra custo manual", () => {
     const produto: ProdutoMestre = {
@@ -146,13 +176,14 @@ describe("resolvePrice — montado", () => {
     expect(r.numNotasPeriodo).toBe(0);
   });
 
-  it("sem precoManual mas com custoManual → sem_preco_manual, custoBase preservado", () => {
+  it("sem precoManual mas com custoManual (sem composição) → usa custo manual + markup", () => {
     const produto: ProdutoMestre = {
       id: "p1", nome: "Reformer", tipo: "montado", custoManual: 1000,
     };
     const r = resolvePrice(produto, [], cfg, HOJE);
-    expect(r.status).toBe("sem_preco_manual");
+    expect(r.status).toBe("ok");
     expect(r.custoBase).toBe(1000);
-    expect(r.precoVenda).toBeNull();
+    const esperado = calculateSellingPrice(1000, cfg).precoComIPI;
+    expect(r.precoVenda).toBeCloseTo(esperado, 2);
   });
 });
