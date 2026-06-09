@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/table";
 import ImportDropzone from "@/components/ImportDropzone";
 import { parseCatalogFile, dedupeCatalog, type CatalogProduct } from "@/lib/catalogParser";
+import { extractPositionedTextFromPDF, readFileAsArrayBuffer } from "@/lib/parsers";
 import { listProdutosMestre, upsertCatalogByCodigo } from "@/repositories/produtosMestreRepo";
 
 function errMsg(err: unknown): string {
@@ -55,6 +56,28 @@ export default function ImportarCatalogo() {
       try {
         const lidos = await parseCatalogFile(file);
         todos.push(...lidos);
+        if (lidos.length === 0) {
+          // Diagnóstico: descobrir onde falhou (extração vs reconhecimento de colunas).
+          try {
+            const buf = await readFileAsArrayBuffer(file);
+            const pages = await extractPositionedTextFromPDF(buf);
+            const totalItens = pages.reduce((a, p) => a + p.length, 0);
+            const amostra = (pages[0] ?? [])
+              .slice(0, 20)
+              .map((i) => `${Math.round(i.x)},${Math.round(i.y)}:${i.str}`);
+            // eslint-disable-next-line no-console
+            console.warn(
+              `[catalogo] ${file.name}: 0 produtos | páginas=${pages.length} itens=${totalItens}`,
+              amostra,
+            );
+            toast.warning(
+              `${file.name}: 0 produtos. Páginas=${pages.length}, itens lidos=${totalItens} (veja o Console F12).`,
+            );
+          } catch (diagErr) {
+            // eslint-disable-next-line no-console
+            console.warn(`[catalogo] ${file.name}: extração falhou`, diagErr);
+          }
+        }
       } catch (err) {
         toast.error(`Falha ao ler ${file.name}: ${errMsg(err)}`);
       }
