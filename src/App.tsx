@@ -6,6 +6,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import AppLayout from "@/components/AppLayout";
 import Login from "@/pages/Login";
 import Produtos from "@/pages/Produtos";
+import MaisVendidos from "@/pages/MaisVendidos";
 import Importar from "@/pages/Importar";
 import ImportarCatalogo from "@/pages/ImportarCatalogo";
 import Vincular from "@/pages/Vincular";
@@ -23,6 +24,7 @@ export default function App() {
             <Route element={<ProtectedRoute />}>
               <Route element={<AppLayout />}>
                 <Route path="/produtos" element={<Produtos />} />
+                <Route path="/mais-vendidos" element={<MaisVendidos />} />
                 <Route path="/importar" element={<Importar />} />
                 <Route path="/catalogo" element={<ImportarCatalogo />} />
                 <Route path="/vincular" element={<Vincular />} />

@@ -4,7 +4,7 @@ import { listItensComData } from "@/repositories/itensNotaRepo";
 import { getConfig } from "@/repositories/configRepo";
 import { resolvePrice, type ItemNota, type ProdutoMestre, type ResolvedPrice } from "@/lib/priceResolution";
 
-export interface LinhaProduto extends ProdutoMestre { resolvido: ResolvedPrice; }
+export interface LinhaProduto extends ProdutoMestre { resolvido: ResolvedPrice; maisVendido: boolean; }
 
 export function useProdutosResolvidos() {
   return useQuery({
@@ -23,7 +23,7 @@ export function useProdutosResolvidos() {
       }
       return mestres.map((m) => {
         const produto: ProdutoMestre = { id: m.id, nome: m.nome, categoria: m.categoria, tipo: m.tipo, custoManual: m.custo_manual, precoManual: m.preco_manual, codigo: m.codigo, unidade: m.unidade, unidadeSecundaria: m.unidade_secundaria, fatorConversao: m.fator_conversao };
-        return { ...produto, resolvido: resolvePrice(produto, porMestre.get(m.id) ?? [], cfg, hoje) };
+        return { ...produto, maisVendido: m.mais_vendido ?? false, resolvido: resolvePrice(produto, porMestre.get(m.id) ?? [], cfg, hoje) };
       });
     },
   });

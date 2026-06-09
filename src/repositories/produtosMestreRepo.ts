@@ -26,6 +26,7 @@ export interface CatalogUpsert {
   unidade: string | null;
   unidade_secundaria: string | null;
   tipo: "comprado" | "montado";
+  categoria: string | null;
 }
 
 function dbErr(error: { message?: string; details?: string; hint?: string; code?: string }): Error {
@@ -61,6 +62,7 @@ export async function upsertCatalogByCodigo(produtos: CatalogUpsert[]): Promise<
       unidade: p.unidade,
       unidade_secundaria: p.unidade_secundaria,
       tipo: p.tipo,
+      categoria: p.categoria,
     };
   });
 

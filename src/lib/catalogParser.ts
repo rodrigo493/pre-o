@@ -12,6 +12,7 @@ export interface CatalogProduct {
   unidade: string | null;
   unidadeSecundaria: string | null;
   tipo: CatalogTipo;
+  categoria: string | null; // "Grupo de produto" do Nomus (ex.: "34 - CHAPA")
 }
 
 /** Unidades de medida conhecidas no catálogo Nomus (normalizadas, sem acento). */
@@ -55,6 +56,8 @@ interface ColumnAnchors {
   descricaoX: number;
   umX: number;
   tipoX: number;
+  grupoX: number | null;
+  familiaX: number | null;
 }
 
 function findAnchors(rows: Array<Array<{ str: string; x: number }>>): ColumnAnchors | null {
@@ -67,9 +70,18 @@ function findAnchors(rows: Array<Array<{ str: string; x: number }>>): ColumnAnch
     // Primeiro "U.M." pela posição (a Secundária vem depois).
     const ums = cells.filter((c) => /^U\.?M\.?/i.test(c.str.trim())).sort((a, b) => a.x - b.x);
     const tipo = cells.find((c) => /^Tipo/.test(c.str.trim()));
+    const grupo = cells.find((c) => /^Grupo/.test(c.str.trim()));
+    const familia = cells.find((c) => /^Fam/.test(c.str.trim()));
     if (!codigo || !descricao || ums.length === 0 || !tipo) continue;
 
-    return { codigoX: codigo.x, descricaoX: descricao.x, umX: ums[0].x, tipoX: tipo.x };
+    return {
+      codigoX: codigo.x,
+      descricaoX: descricao.x,
+      umX: ums[0].x,
+      tipoX: tipo.x,
+      grupoX: grupo ? grupo.x : null,
+      familiaX: familia ? familia.x : null,
+    };
   }
   return null;
 }
@@ -106,6 +118,8 @@ export function parseCatalogFromPositionedItems(
   const flush = () => {
     if (!pending) return;
     pending.nome = pending.nome.replace(/\s+/g, " ").trim();
+    const cat = (pending.categoria ?? "").replace(/\s+/g, " ").trim();
+    pending.categoria = cat || null;
     if (pending.codigo && pending.nome) products.push(pending);
     pending = null;
   };
@@ -117,6 +131,23 @@ export function parseCatalogFromPositionedItems(
 
     const codigoEnd = (anchors.codigoX + anchors.descricaoX) / 2;
     const descricaoEnd = (anchors.descricaoX + anchors.umX) / 2;
+    // Faixa da coluna "Grupo de produto" (entre Tipo e Família).
+    const grupoStart = anchors.grupoX != null ? (anchors.tipoX + anchors.grupoX) / 2 : null;
+    const grupoEnd =
+      anchors.grupoX != null
+        ? anchors.familiaX != null
+          ? (anchors.grupoX + anchors.familiaX) / 2
+          : anchors.grupoX + 100
+        : null;
+
+    const grupoDe = (cells: Array<{ str: string; x: number }>): string => {
+      if (grupoStart == null || grupoEnd == null) return "";
+      return cells
+        .filter((c) => c.x >= grupoStart && c.x < grupoEnd)
+        .map((c) => c.str)
+        .join(" ")
+        .trim();
+    };
 
     for (const cells of rows) {
       if (isHeaderRow(cells)) continue;
@@ -125,6 +156,7 @@ export function parseCatalogFromPositionedItems(
       const descricaoCells = cells.filter((c) => c.x >= codigoEnd && c.x < descricaoEnd);
       const codigo = codigoCells.map((c) => c.str).join(" ").trim();
       const descricao = descricaoCells.map((c) => c.str).join(" ").trim();
+      const grupo = grupoDe(cells);
 
       if (codigo) {
         // Nova linha de produto
@@ -142,10 +174,12 @@ export function parseCatalogFromPositionedItems(
           unidade: unidadeCells[0] ? normalizeUnit(unidadeCells[0].str) : null,
           unidadeSecundaria: unidadeCells[1] ? normalizeUnit(unidadeCells[1].str) : null,
           tipo,
+          categoria: grupo || null,
         };
-      } else if (pending && descricao) {
-        // Continuação da descrição (multilinha / virada de página)
-        pending.nome = `${pending.nome} ${descricao}`;
+      } else if (pending) {
+        // Continuação (multilinha / virada de página): acumula descrição e grupo.
+        if (descricao) pending.nome = `${pending.nome} ${descricao}`;
+        if (grupo) pending.categoria = pending.categoria ? `${pending.categoria} ${grupo}` : grupo;
       }
     }
   }

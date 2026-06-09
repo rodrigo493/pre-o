@@ -82,6 +82,7 @@ export default function ImportarCatalogo() {
           unidade: p.unidade,
           unidade_secundaria: p.unidadeSecundaria,
           tipo: p.tipo,
+          categoria: p.categoria,
         })),
       );
       queryClient.invalidateQueries({ queryKey: ["produtos-mestre"] });
@@ -151,6 +152,7 @@ export default function ImportarCatalogo() {
                 <TableRow className="[&_th]:text-[11px] [&_th]:font-medium [&_th]:uppercase [&_th]:tracking-wide [&_th]:text-muted-foreground">
                   <TableHead>Código</TableHead>
                   <TableHead>Descrição</TableHead>
+                  <TableHead>Grupo</TableHead>
                   <TableHead>U.M.</TableHead>
                   <TableHead>U.M. sec.</TableHead>
                   <TableHead>Tipo</TableHead>
@@ -164,6 +166,7 @@ export default function ImportarCatalogo() {
                     <TableCell className="max-w-[26rem]">
                       <span className="line-clamp-2">{p.nome}</span>
                     </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{p.categoria ?? "—"}</TableCell>
                     <TableCell className="text-muted-foreground">{p.unidade ?? "—"}</TableCell>
                     <TableCell className="text-muted-foreground">
                       {p.unidadeSecundaria ?? "—"}

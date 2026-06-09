@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { FileDown, FileSpreadsheet, Tag } from "lucide-react";
+import { FileDown, FileSpreadsheet, Star, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,7 @@ import {
 import PriceBadge from "@/components/PriceBadge";
 import EditarPrecoDialog from "@/components/EditarPrecoDialog";
 import { useProdutosResolvidos, type LinhaProduto } from "@/hooks/useProdutosResolvidos";
+import { updateProdutoMestre } from "@/repositories/produtosMestreRepo";
 import { formatMargem, formatMoeda, formatOrigem } from "@/lib/produtoFormat";
 import { exportarXlsx } from "@/lib/exportXlsx";
 
@@ -23,22 +25,48 @@ function errMsg(err: unknown): string {
 }
 
 export default function Produtos() {
+  const queryClient = useQueryClient();
   const produtosQuery = useProdutosResolvidos();
   const [busca, setBusca] = useState("");
+  const [grupo, setGrupo] = useState("");
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   const [editando, setEditando] = useState<LinhaProduto | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
 
   const linhas = produtosQuery.data ?? [];
 
+  const grupos = useMemo(
+    () =>
+      Array.from(new Set(linhas.map((l) => l.categoria).filter(Boolean) as string[])).sort(
+        (a, b) => a.localeCompare(b, "pt-BR"),
+      ),
+    [linhas],
+  );
+
   const filtradas = useMemo(() => {
     const q = busca.trim().toLowerCase();
-    if (!q) return linhas;
-    return linhas.filter(
-      (l) =>
-        l.nome.toLowerCase().includes(q) ||
-        (l.codigo ?? "").toLowerCase().includes(q),
-    );
-  }, [linhas, busca]);
+    return linhas.filter((l) => {
+      const matchBusca =
+        !q || l.nome.toLowerCase().includes(q) || (l.codigo ?? "").toLowerCase().includes(q);
+      const matchGrupo = !grupo || l.categoria === grupo;
+      return matchBusca && matchGrupo;
+    });
+  }, [linhas, busca, grupo]);
+
+  const toggleMaisVendido = async (linha: LinhaProduto) => {
+    setTogglingId(linha.id);
+    try {
+      await updateProdutoMestre(linha.id, { mais_vendido: !linha.maisVendido });
+      queryClient.invalidateQueries({ queryKey: ["produtos-resolvidos"] });
+      toast.success(
+        linha.maisVendido ? "Removido dos mais vendidos." : "Marcado como mais vendido.",
+      );
+    } catch (err) {
+      toast.error(`Falha ao atualizar: ${errMsg(err)}`);
+    } finally {
+      setTogglingId(null);
+    }
+  };
 
   const abrirEdicao = (linha: LinhaProduto) => {
     setEditando(linha);
@@ -107,12 +135,26 @@ export default function Produtos() {
           <CardTitle className="text-base font-semibold">
             Tabela de preços{!produtosQuery.isLoading ? ` (${filtradas.length})` : ""}
           </CardTitle>
-          <Input
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-            placeholder="Buscar por nome ou código…"
-            className="max-w-sm no-print"
-          />
+          <div className="flex flex-wrap gap-2 no-print">
+            <Input
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Buscar por nome ou código…"
+              className="max-w-sm"
+            />
+            <select
+              value={grupo}
+              onChange={(e) => setGrupo(e.target.value)}
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="">Todos os grupos ({grupos.length})</option>
+              {grupos.map((g) => (
+                <option key={g} value={g}>
+                  {g}
+                </option>
+              ))}
+            </select>
+          </div>
         </CardHeader>
         <CardContent>
           {produtosQuery.isLoading ? (
@@ -143,6 +185,7 @@ export default function Produtos() {
                   <TableHead>Origem</TableHead>
                   <TableHead className="text-right">Nº notas (3m)</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="text-center no-print">Mais vendido</TableHead>
                   <TableHead className="text-right no-print">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -181,6 +224,23 @@ export default function Produtos() {
                             </span>
                           )}
                         </div>
+                      </TableCell>
+                      <TableCell className="text-center no-print">
+                        <Button
+                          variant={linha.maisVendido ? "default" : "ghost"}
+                          size="sm"
+                          disabled={togglingId === linha.id}
+                          onClick={() => void toggleMaisVendido(linha)}
+                          title={
+                            linha.maisVendido
+                              ? "Remover dos mais vendidos"
+                              : "Marcar como mais vendido"
+                          }
+                        >
+                          <Star
+                            className={`h-4 w-4 ${linha.maisVendido ? "fill-current" : ""}`}
+                          />
+                        </Button>
                       </TableCell>
                       <TableCell className="text-right no-print">
                         <Button
