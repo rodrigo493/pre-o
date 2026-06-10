@@ -45,6 +45,32 @@ export async function removeComponente(id: string): Promise<void> {
   if (error) throw dbErr(error);
 }
 
+/** Remove todos os componentes de um montado (usado antes de reimportar a composição). */
+export async function clearComponentes(montadoId: string): Promise<void> {
+  const { error } = await supabase
+    .from("componentes_montado")
+    .delete()
+    .eq("montado_id", montadoId);
+  if (error) throw dbErr(error);
+}
+
+/** Insere vários componentes de uma vez (em lotes). */
+export async function insertComponentes(
+  montadoId: string,
+  itens: Array<{ componenteId: string; quantidade: number }>,
+): Promise<void> {
+  const LOTE = 500;
+  const rows = itens.map((i) => ({
+    montado_id: montadoId,
+    componente_id: i.componenteId,
+    quantidade: i.quantidade,
+  }));
+  for (let i = 0; i < rows.length; i += LOTE) {
+    const { error } = await supabase.from("componentes_montado").insert(rows.slice(i, i + LOTE));
+    if (error) throw dbErr(error);
+  }
+}
+
 export async function updateQuantidade(id: string, quantidade: number): Promise<void> {
   const { error } = await supabase
     .from("componentes_montado")

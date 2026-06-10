@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Trash2 } from "lucide-react";
@@ -19,7 +19,10 @@ import {
   upsertComponente,
   removeComponente,
   updateQuantidade,
+  clearComponentes,
+  insertComponentes,
 } from "@/repositories/componentesMontadoRepo";
+import { parseComposicaoFile, agregarPorCodigo } from "@/lib/composicaoParser";
 import { useProdutosResolvidos } from "@/hooks/useProdutosResolvidos";
 import { getConfig } from "@/repositories/configRepo";
 import { calculateSellingPrice, formatCurrency } from "@/lib/pricing";
@@ -60,7 +63,9 @@ export default function EditarMontadoDialog({
   const [categoria, setCategoria] = useState("");
   const [preco, setPreco] = useState("");
   const [busy, setBusy] = useState(false);
+  const [importando, setImportando] = useState(false);
   const [query, setQuery] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const produtosQuery = useProdutosResolvidos();
   const configQuery = useQuery({ queryKey: ["config"], queryFn: getConfig });
@@ -161,6 +166,58 @@ export default function EditarMontadoDialog({
     }
   };
 
+  const codigoParaId = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const l of linhas) if (l.codigo) m.set(l.codigo.trim().toUpperCase(), l.id);
+    return m;
+  }, [linhas]);
+
+  const importarComposicao = async (file: File) => {
+    setImportando(true);
+    try {
+      const result = await parseComposicaoFile(file);
+      const itens = agregarPorCodigo(result.itens).filter(
+        (i) => codigoParaId.get(i.codigo.trim().toUpperCase()) !== produto.id, // evita auto-referência
+      );
+      if (itens.length === 0) {
+        toast.warning("Nenhum componente reconhecido no PDF da ficha técnica.");
+        return;
+      }
+      const encontrados: Array<{ componenteId: string; quantidade: number }> = [];
+      const naoEncontrados: string[] = [];
+      for (const it of itens) {
+        const id = codigoParaId.get(it.codigo.trim().toUpperCase());
+        if (id) encontrados.push({ componenteId: id, quantidade: it.quantidade });
+        else naoEncontrados.push(it.codigo);
+      }
+
+      const ok = window.confirm(
+        `Importar composição: ${encontrados.length} componente(s) encontrados no catálogo` +
+          (naoEncontrados.length ? `, ${naoEncontrados.length} não encontrados (serão ignorados)` : "") +
+          `.\n\nIsto SUBSTITUI a composição atual deste montado. Continuar?`,
+      );
+      if (!ok) return;
+
+      await clearComponentes(produto.id);
+      if (encontrados.length > 0) await insertComponentes(produto.id, encontrados);
+      invalidate();
+
+      if (naoEncontrados.length > 0) {
+        // eslint-disable-next-line no-console
+        console.warn("[composição] códigos não encontrados no catálogo:", naoEncontrados);
+        toast.warning(
+          `${encontrados.length} importados. ${naoEncontrados.length} não estão no catálogo (veja Console F12). Importe o catálogo Nomus desses itens e refaça.`,
+        );
+      } else {
+        toast.success(`Composição importada: ${encontrados.length} componentes.`);
+      }
+    } catch (err) {
+      toast.error(`Falha ao importar composição: ${errMsg(err)}`);
+    } finally {
+      setImportando(false);
+    }
+  };
+
   const salvarDados = async () => {
     const nomeLimpo = nome.trim();
     if (nomeLimpo === "") {
@@ -226,17 +283,25 @@ export default function EditarMontadoDialog({
         <div className="mt-2 flex flex-col gap-3 border-t pt-4">
           <div className="flex items-center justify-between gap-2">
             <p className="text-sm font-medium">Componentes</p>
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".pdf"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void importarComposicao(f);
+                e.target.value = "";
+              }}
+            />
             <Button
               type="button"
               variant="outline"
               size="sm"
-              onClick={() =>
-                toast.info(
-                  "Importar composição do Nomus: me envie um PDF de exemplo da estrutura para ativar.",
-                )
-              }
+              disabled={importando || busy}
+              onClick={() => fileRef.current?.click()}
             >
-              Importar composição (PDF)
+              {importando ? "Importando…" : "Importar composição (PDF)"}
             </Button>
           </div>
 
