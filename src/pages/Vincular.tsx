@@ -64,7 +64,12 @@ export default function Vincular() {
   };
 
   /** Vincula o item (e, se lote, os outros pendentes com mesmo cprod) ao mestre. */
-  const linkToMestre = async (item: ItemRow, mestreId: string, lote: boolean) => {
+  const linkToMestre = async (
+    item: ItemRow,
+    mestreId: string,
+    lote: boolean,
+    fator: number | null,
+  ) => {
     setBusyId(item.id);
     try {
       const alvos = lote
@@ -74,8 +79,8 @@ export default function Vincular() {
       for (const alvo of alvos) {
         await vincularItem(alvo.id, mestreId);
       }
-      // Memoriza o cprod uma única vez (normalizado dentro do repo).
-      await upsertVinculo(item.cprod, mestreId);
+      // Memoriza o cprod (e o fator de conversão) uma única vez.
+      await upsertVinculo(item.cprod, mestreId, fator);
 
       invalidate();
       const extra = alvos.length - 1;
@@ -91,8 +96,13 @@ export default function Vincular() {
     }
   };
 
-  const handleVincularExistente = (item: ItemRow, mestreId: string, lote: boolean) => {
-    void linkToMestre(item, mestreId, lote);
+  const handleVincularExistente = (
+    item: ItemRow,
+    mestreId: string,
+    lote: boolean,
+    fator: number | null,
+  ) => {
+    void linkToMestre(item, mestreId, lote, fator);
   };
 
   /** Vincula em massa todos os pendentes com descrição IDÊNTICA a um produto oficial. */
@@ -127,11 +137,16 @@ export default function Vincular() {
     }
   };
 
-  const handleCriarMestre = async (item: ItemRow, nome: string, lote: boolean) => {
+  const handleCriarMestre = async (
+    item: ItemRow,
+    nome: string,
+    lote: boolean,
+    fator: number | null,
+  ) => {
     setBusyId(item.id);
     try {
       const mestre = await createProdutoMestre({ nome, tipo: "comprado" });
-      await linkToMestre(item, mestre.id, lote);
+      await linkToMestre(item, mestre.id, lote, fator);
     } catch (err) {
       toast.error(`Falha ao criar mestre: ${errMsg(err)}`);
     } finally {

@@ -91,6 +91,17 @@ describe("resolvePrice — conversão de unidade", () => {
     expect(r.custoBase).toBe(8.5); // usa custo cru
   });
 
+  it("fator do vínculo divide o custo (ex.: cento → unidade, fator 100)", () => {
+    const produto: ProdutoMestre = { id: "p1", nome: "Parafuso", tipo: "comprado" };
+    const itemCento: ItemNota = {
+      id: "i1", custoUnitario: 50, dataEmissao: "2026-05-01", notaId: "n1",
+      unidade: "CE", fatorConversao: 100,
+    };
+    const r = resolvePrice(produto, [itemCento], cfg, HOJE);
+    expect(r.status).toBe("ok");
+    expect(r.custoBase).toBeCloseTo(0.5, 5); // 50 / 100
+  });
+
   it("compara o maior custo já convertido", () => {
     const itens: ItemNota[] = [
       { id: "i1", custoUnitario: 300, dataEmissao: "2026-05-01", notaId: "n1", unidade: "UNIDADE" },

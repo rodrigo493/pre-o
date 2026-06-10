@@ -35,8 +35,8 @@ export interface Database {
         ];
       };
       vinculos_cprod: {
-        Row: { cprod: string; produto_mestre_id: string; created_at: string };
-        Insert: { cprod: string; produto_mestre_id: string; created_at?: string };
+        Row: { cprod: string; produto_mestre_id: string; fator_conversao: number | null; created_at: string };
+        Insert: { cprod: string; produto_mestre_id: string; fator_conversao?: number | null; created_at?: string };
         Update: Partial<Database["public"]["Tables"]["vinculos_cprod"]["Insert"]>;
         Relationships: [
           {

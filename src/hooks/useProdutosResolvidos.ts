@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { listProdutosMestre } from "@/repositories/produtosMestreRepo";
 import { listItensComData } from "@/repositories/itensNotaRepo";
 import { listComponentes } from "@/repositories/componentesMontadoRepo";
+import { listVinculos } from "@/repositories/vinculosRepo";
 import { getConfig } from "@/repositories/configRepo";
 import { resolvePrice, type ItemNota, type ProdutoMestre, type ResolvedPrice } from "@/lib/priceResolution";
 
@@ -11,15 +12,22 @@ export function useProdutosResolvidos() {
   return useQuery({
     queryKey: ["produtos-resolvidos"],
     queryFn: async (): Promise<LinhaProduto[]> => {
-      const [mestres, itens, cfg, componentes] = await Promise.all([
-        listProdutosMestre(), listItensComData(), getConfig(), listComponentes(),
+      const [mestres, itens, cfg, componentes, vinculos] = await Promise.all([
+        listProdutosMestre(), listItensComData(), getConfig(), listComponentes(), listVinculos(),
       ]);
       const hoje = new Date();
+      // Fator de conversão por cProd (vínculo): custo_real = custo / fator.
+      const fatorPorCprod = new Map<string, number>();
+      for (const v of vinculos) {
+        if (v.fatorConversao != null && v.fatorConversao > 0) {
+          fatorPorCprod.set(v.cprod.trim().toUpperCase(), v.fatorConversao);
+        }
+      }
       const porMestre = new Map<string, ItemNota[]>();
       for (const it of itens) {
         if (!it.produto_mestre_id) continue;
         const arr = porMestre.get(it.produto_mestre_id) ?? [];
-        arr.push({ id: it.id, custoUnitario: Number(it.custo_unitario), dataEmissao: it.data_emissao, notaId: it.nota_id, notaNumero: it.nota_numero ?? undefined, unidade: it.unidade });
+        arr.push({ id: it.id, custoUnitario: Number(it.custo_unitario), dataEmissao: it.data_emissao, notaId: it.nota_id, notaNumero: it.nota_numero ?? undefined, unidade: it.unidade, fatorConversao: fatorPorCprod.get(it.cprod.trim().toUpperCase()) });
         porMestre.set(it.produto_mestre_id, arr);
       }
 

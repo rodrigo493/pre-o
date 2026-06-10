@@ -12,6 +12,7 @@ export interface ItemNota {
   notaId: string;
   notaNumero?: string;
   unidade?: string | null; // unidade da nota (para conversão)
+  fatorConversao?: number | null; // fator do vínculo (cProd): custo_real = custo / fator
 }
 
 export interface ProdutoMestre {
@@ -72,6 +73,10 @@ export function resolvePrice(
   // de comparar; sinaliza se algum item ficou pendente de fator de conversão.
   let conversaoPendente = false;
   const convertidos = recentes.map((it) => {
+    // Fator do vínculo (cProd) tem prioridade: custo_real = custo / fator (ex.: cento → unidade).
+    if (it.fatorConversao != null && it.fatorConversao > 0) {
+      return { item: it, custo: it.custoUnitario / it.fatorConversao };
+    }
     const conv = converterCusto(it.custoUnitario, it.unidade, produto);
     if (conv.pendente) conversaoPendente = true;
     return { item: it, custo: conv.custo };

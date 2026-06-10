@@ -17,9 +17,9 @@ export interface VincularRowProps {
   outrosMesmoCprod: number;
   busy: boolean;
   /** Vincula a um mestre existente. lote = aplicar a todos com o mesmo cprod. */
-  onVincularExistente: (item: ItemRow, mestreId: string, lote: boolean) => void;
+  onVincularExistente: (item: ItemRow, mestreId: string, lote: boolean, fator: number | null) => void;
   /** Cria um mestre novo a partir da descrição e vincula. */
-  onCriarMestre: (item: ItemRow, nome: string, lote: boolean) => void;
+  onCriarMestre: (item: ItemRow, nome: string, lote: boolean, fator: number | null) => void;
 }
 
 function normalize(text: string): string {
@@ -42,8 +42,18 @@ export default function VincularRow({
   const [criando, setCriando] = useState(false);
   const [nomeNovo, setNomeNovo] = useState(item.descricao);
   const [lote, setLote] = useState(true);
+  const [fator, setFator] = useState("");
 
   const aplicarLote = lote && outrosMesmoCprod > 0;
+
+  const fatorNum = (() => {
+    const t = fator.trim();
+    if (t === "") return null;
+    const n = Number(t.replace(",", "."));
+    return Number.isFinite(n) && n > 0 ? n : null;
+  })();
+  const custoNota = Number(item.custo_unitario);
+  const custoReal = fatorNum ? custoNota / fatorNum : custoNota;
 
   // Sugestão automática pela descrição do item da nota.
   const sugestao = useMemo(() => {
@@ -100,7 +110,7 @@ export default function VincularRow({
                 <Button
                   size="sm"
                   disabled={busy || nomeNovo.trim().length === 0}
-                  onClick={() => onCriarMestre(item, nomeNovo.trim(), aplicarLote)}
+                  onClick={() => onCriarMestre(item, nomeNovo.trim(), aplicarLote, fatorNum)}
                 >
                   Criar e vincular
                 </Button>
@@ -155,11 +165,34 @@ export default function VincularRow({
                 )}
               </div>
 
+              <div className="flex flex-wrap items-center gap-2 rounded-md bg-muted/40 px-2 py-1.5">
+                <span className="text-[11px] text-muted-foreground">
+                  Unid.: <strong>{item.unidade ?? "—"}</strong> · Valor:{" "}
+                  <strong>{formatCurrency(custoNota)}</strong>
+                </span>
+                <div className="flex items-center gap-1">
+                  <label className="text-[11px] text-muted-foreground">Fator</label>
+                  <Input
+                    value={fator}
+                    onChange={(e) => setFator(e.target.value)}
+                    placeholder="ex.: 100"
+                    inputMode="decimal"
+                    className="h-7 w-20"
+                    disabled={busy}
+                  />
+                </div>
+                {fatorNum && (
+                  <span className="text-[11px] text-emerald-600">
+                    → custo real {formatCurrency(custoReal)}/un
+                  </span>
+                )}
+              </div>
+
               <div className="flex gap-2">
                 <Button
                   size="sm"
                   disabled={busy || !selectedId}
-                  onClick={() => onVincularExistente(item, selectedId, aplicarLote)}
+                  onClick={() => onVincularExistente(item, selectedId, aplicarLote, fatorNum)}
                 >
                   Vincular
                 </Button>

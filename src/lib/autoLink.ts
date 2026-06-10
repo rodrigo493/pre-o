@@ -1,6 +1,7 @@
 export interface Vinculo {
   cprod: string;
   produtoMestreId: string;
+  fatorConversao?: number | null;
 }
 export interface ItemParaVincular {
   id: string;
