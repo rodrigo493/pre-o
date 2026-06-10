@@ -1,8 +1,8 @@
 import { subMonths, parseISO, startOfDay } from "date-fns";
 import { calculateSellingPrice, type PricingPercentages } from "@/lib/pricing";
-import { converterCusto } from "@/lib/unitConvert";
 
 export type ProdutoTipo = "comprado" | "montado";
+export type ConversaoOp = "dividir" | "multiplicar";
 export type PriceStatus = "ok" | "travado" | "sem_custo_recente" | "sem_preco_manual";
 
 export interface ItemNota {
@@ -26,6 +26,8 @@ export interface ProdutoMestre {
   unidade?: string | null;
   unidadeSecundaria?: string | null;
   fatorConversao?: number | null;
+  /** Operação da conversão do custo da nota: dividir (cento→un) ou multiplicar (kg→peça). */
+  conversaoOp?: ConversaoOp | null;
   /** Custo total dos componentes (montado): soma de custo×qtd. null = sem composição. */
   custoComponentes?: number | null;
 }
@@ -69,17 +71,21 @@ export function resolvePrice(
 ): ResolvedPrice {
   const recentes = itensNaJanela(itens, hoje);
 
-  // Converte o custo de cada item para a unidade principal do produto antes
-  // de comparar; sinaliza se algum item ficou pendente de fator de conversão.
-  let conversaoPendente = false;
+  // Converte o custo de cada item da nota para a unidade do produto.
+  // Prioridade: fator do vínculo (cProd, sempre divide) → fator do produto (op ÷/×).
+  // O fator do produto é aplicado SEMPRE que definido (não depende do texto da unidade).
+  const conversaoPendente = false;
   const convertidos = recentes.map((it) => {
-    // Fator do vínculo (cProd) tem prioridade: custo_real = custo / fator (ex.: cento → unidade).
+    let custo = it.custoUnitario;
     if (it.fatorConversao != null && it.fatorConversao > 0) {
-      return { item: it, custo: it.custoUnitario / it.fatorConversao };
+      custo = it.custoUnitario / it.fatorConversao;
+    } else if (produto.fatorConversao != null && produto.fatorConversao > 0) {
+      custo =
+        produto.conversaoOp === "dividir"
+          ? it.custoUnitario / produto.fatorConversao
+          : it.custoUnitario * produto.fatorConversao;
     }
-    const conv = converterCusto(it.custoUnitario, it.unidade, produto);
-    if (conv.pendente) conversaoPendente = true;
-    return { item: it, custo: conv.custo };
+    return { item: it, custo };
   });
 
   const maior = convertidos.reduce<{ item: ItemNota; custo: number } | null>(

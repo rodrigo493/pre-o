@@ -31,6 +31,7 @@ export default function EditarPrecoDialog({ linha, open, onOpenChange }: EditarP
   const [unidade, setUnidade] = useState("");
   const [unidadeSec, setUnidadeSec] = useState("");
   const [fator, setFator] = useState("");
+  const [op, setOp] = useState<"dividir" | "multiplicar">("dividir");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -38,6 +39,7 @@ export default function EditarPrecoDialog({ linha, open, onOpenChange }: EditarP
     setUnidade(linha?.unidade ?? "");
     setUnidadeSec(linha?.unidadeSecundaria ?? "");
     setFator(linha?.fatorConversao != null ? String(linha.fatorConversao) : "");
+    setOp(linha?.conversaoOp ?? "dividir");
   }, [linha]);
 
   if (!linha) return null;
@@ -78,9 +80,10 @@ export default function EditarPrecoDialog({ linha, open, onOpenChange }: EditarP
         unidade: unidade.trim() || null,
         unidade_secundaria: unidadeSec.trim() || null,
         fator_conversao: fatorNum,
+        conversao_op: fatorNum != null ? op : null,
       });
       invalidate();
-      toast.success("Unidade e fator salvos.");
+      toast.success("Conversão salva.");
       onOpenChange(false);
     } catch (err) {
       toast.error(`Falha ao salvar: ${errMsg(err)}`);
@@ -141,35 +144,30 @@ export default function EditarPrecoDialog({ linha, open, onOpenChange }: EditarP
         </div>
 
         <div className="mt-2 flex flex-col gap-3 border-t pt-4">
-          <p className="text-sm font-medium">Conversão de unidade</p>
+          <p className="text-sm font-medium">Conversão de custo da nota</p>
           <p className="-mt-2 text-xs text-muted-foreground">
-            Quando a nota vem em unidade diferente, o custo é convertido para a unidade
-            principal. Fator = quantos da unidade secundária equivalem a 1 unidade principal
-            (ex.: 47,1 kg = 1 peça).
+            Aplica <strong>sempre</strong> no custo que vem da nota (não depende da unidade).
+            <br />
+            <strong>Dividir</strong>: nota vem num pacote → custo unitário (ex.: cento ÷ 100).
+            <br />
+            <strong>Multiplicar</strong>: nota vem fracionada → custo da peça (ex.: kg × 47,1).
           </p>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2">
             <div className="flex flex-col gap-1">
-              <Label htmlFor="unidade" className="text-xs">Unidade principal</Label>
-              <Input
-                id="unidade"
-                value={unidade}
-                onChange={(e) => setUnidade(e.target.value)}
-                placeholder="UNIDADE"
+              <Label htmlFor="conv-op" className="text-xs">Operação</Label>
+              <select
+                id="conv-op"
+                value={op}
+                onChange={(e) => setOp(e.target.value as "dividir" | "multiplicar")}
                 disabled={busy}
-              />
+                className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="dividir">Dividir o custo por (÷)</option>
+                <option value="multiplicar">Multiplicar o custo por (×)</option>
+              </select>
             </div>
             <div className="flex flex-col gap-1">
-              <Label htmlFor="unidade-sec" className="text-xs">Unidade da nota</Label>
-              <Input
-                id="unidade-sec"
-                value={unidadeSec}
-                onChange={(e) => setUnidadeSec(e.target.value)}
-                placeholder="QUILOGRAMA"
-                disabled={busy}
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label htmlFor="fator" className="text-xs">Fator (sec. por 1)</Label>
+              <Label htmlFor="fator" className="text-xs">Fator</Label>
               <Input
                 id="fator"
                 type="number"
@@ -177,11 +175,15 @@ export default function EditarPrecoDialog({ linha, open, onOpenChange }: EditarP
                 step="0.0001"
                 value={fator}
                 onChange={(e) => setFator(e.target.value)}
-                placeholder="47,1"
+                placeholder="ex.: 100"
                 disabled={busy}
               />
             </div>
           </div>
+          <p className="text-xs text-muted-foreground">
+            Deixe o fator vazio para não converter. (Unidade do produto:{" "}
+            {linha.unidade ?? "—"})
+          </p>
         </div>
 
         <DialogFooter className="gap-2 sm:gap-2">

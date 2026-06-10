@@ -234,14 +234,7 @@ export default function Produtos() {
                         {r.numNotasPeriodo}
                       </TableCell>
                       <TableCell>
-                        <div className="flex flex-col gap-1">
-                          <PriceBadge status={r.status} />
-                          {r.conversaoPendente && (
-                            <span className="text-[11px] font-medium text-amber-600">
-                              conversão pendente
-                            </span>
-                          )}
-                        </div>
+                        <PriceBadge status={r.status} />
                       </TableCell>
                       <TableCell className="text-center no-print">
                         <Button

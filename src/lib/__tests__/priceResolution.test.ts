@@ -65,51 +65,47 @@ describe("resolvePrice — comprado (regra dos 3 meses)", () => {
   });
 });
 
-describe("resolvePrice — conversão de unidade", () => {
-  const chapa: ProdutoMestre = {
-    id: "p1", nome: "Chapa", tipo: "comprado",
-    unidade: "UNIDADE", unidadeSecundaria: "QUILOGRAMA", fatorConversao: 47.1,
-  };
-
-  it("converte custo da nota (kg) para a unidade principal (peça)", () => {
-    const itemKg: ItemNota = {
-      id: "i1", custoUnitario: 8.5, dataEmissao: "2026-05-01", notaId: "n1", unidade: "QUILOGRAMA",
+describe("resolvePrice — conversão de custo (fator por produto)", () => {
+  it("multiplicar: kg → peça (fator 47,1)", () => {
+    const chapa: ProdutoMestre = {
+      id: "p1", nome: "Chapa", tipo: "comprado", fatorConversao: 47.1, conversaoOp: "multiplicar",
     };
-    const r = resolvePrice(chapa, [itemKg], cfg, HOJE);
+    const r = resolvePrice(chapa, [item(8.5, "2026-05-01")], cfg, HOJE);
     expect(r.status).toBe("ok");
     expect(r.custoBase).toBeCloseTo(400.35, 2); // 8.5 × 47.1
-    expect(r.conversaoPendente).toBe(false);
   });
 
-  it("marca conversaoPendente quando falta o fator", () => {
-    const semFator: ProdutoMestre = { ...chapa, fatorConversao: null };
-    const itemKg: ItemNota = {
-      id: "i1", custoUnitario: 8.5, dataEmissao: "2026-05-01", notaId: "n1", unidade: "QUILOGRAMA",
+  it("dividir: cento → unidade (fator 100)", () => {
+    const parafuso: ProdutoMestre = {
+      id: "p1", nome: "Parafuso", tipo: "comprado", fatorConversao: 100, conversaoOp: "dividir",
     };
-    const r = resolvePrice(semFator, [itemKg], cfg, HOJE);
-    expect(r.conversaoPendente).toBe(true);
-    expect(r.custoBase).toBe(8.5); // usa custo cru
-  });
-
-  it("fator do vínculo divide o custo (ex.: cento → unidade, fator 100)", () => {
-    const produto: ProdutoMestre = { id: "p1", nome: "Parafuso", tipo: "comprado" };
-    const itemCento: ItemNota = {
-      id: "i1", custoUnitario: 50, dataEmissao: "2026-05-01", notaId: "n1",
-      unidade: "CE", fatorConversao: 100,
-    };
-    const r = resolvePrice(produto, [itemCento], cfg, HOJE);
+    const r = resolvePrice(parafuso, [item(50, "2026-05-01")], cfg, HOJE);
     expect(r.status).toBe("ok");
     expect(r.custoBase).toBeCloseTo(0.5, 5); // 50 / 100
   });
 
-  it("compara o maior custo já convertido", () => {
-    const itens: ItemNota[] = [
-      { id: "i1", custoUnitario: 300, dataEmissao: "2026-05-01", notaId: "n1", unidade: "UNIDADE" },
-      { id: "i2", custoUnitario: 8.5, dataEmissao: "2026-05-02", notaId: "n2", unidade: "QUILOGRAMA" }, // 400.35 convertido
-    ];
-    const r = resolvePrice(chapa, itens, cfg, HOJE);
-    expect(r.custoBase).toBeCloseTo(400.35, 2);
-    expect(r.origem?.notaId).toBe("n2");
+  it("op ausente assume multiplicar (compatibilidade)", () => {
+    const p: ProdutoMestre = { id: "p1", nome: "X", tipo: "comprado", fatorConversao: 2 };
+    const r = resolvePrice(p, [item(10, "2026-05-01")], cfg, HOJE);
+    expect(r.custoBase).toBe(20);
+  });
+
+  it("sem fator → custo cru, sem pendência", () => {
+    const p: ProdutoMestre = { id: "p1", nome: "X", tipo: "comprado" };
+    const r = resolvePrice(p, [item(8.5, "2026-05-01")], cfg, HOJE);
+    expect(r.custoBase).toBe(8.5);
+    expect(r.conversaoPendente).toBe(false);
+  });
+
+  it("fator do vínculo (cProd) divide e tem prioridade", () => {
+    const p: ProdutoMestre = {
+      id: "p1", nome: "Parafuso", tipo: "comprado", fatorConversao: 5, conversaoOp: "multiplicar",
+    };
+    const itemCento: ItemNota = {
+      id: "i1", custoUnitario: 50, dataEmissao: "2026-05-01", notaId: "n1", fatorConversao: 100,
+    };
+    const r = resolvePrice(p, [itemCento], cfg, HOJE);
+    expect(r.custoBase).toBeCloseTo(0.5, 5); // vínculo /100 vence o produto ×5
   });
 });
 

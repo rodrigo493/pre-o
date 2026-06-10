@@ -2,8 +2,8 @@ export interface Database {
   public: {
     Tables: {
       produtos_mestre: {
-        Row: { id: string; nome: string; categoria: string | null; tipo: "comprado" | "montado"; custo_manual: number | null; preco_manual: number | null; codigo: string | null; unidade: string | null; unidade_secundaria: string | null; fator_conversao: number | null; mais_vendido: boolean; created_at: string };
-        Insert: { id?: string; nome: string; categoria?: string | null; tipo?: "comprado" | "montado"; custo_manual?: number | null; preco_manual?: number | null; codigo?: string | null; unidade?: string | null; unidade_secundaria?: string | null; fator_conversao?: number | null; mais_vendido?: boolean; created_at?: string };
+        Row: { id: string; nome: string; categoria: string | null; tipo: "comprado" | "montado"; custo_manual: number | null; preco_manual: number | null; codigo: string | null; unidade: string | null; unidade_secundaria: string | null; fator_conversao: number | null; conversao_op: "dividir" | "multiplicar" | null; mais_vendido: boolean; created_at: string };
+        Insert: { id?: string; nome: string; categoria?: string | null; tipo?: "comprado" | "montado"; custo_manual?: number | null; preco_manual?: number | null; codigo?: string | null; unidade?: string | null; unidade_secundaria?: string | null; fator_conversao?: number | null; conversao_op?: "dividir" | "multiplicar" | null; mais_vendido?: boolean; created_at?: string };
         Update: Partial<Database["public"]["Tables"]["produtos_mestre"]["Insert"]>;
         Relationships: [];
       };

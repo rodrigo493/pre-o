@@ -35,6 +35,7 @@ export function useProdutosResolvidos() {
         id: m.id, nome: m.nome, categoria: m.categoria, tipo: m.tipo,
         custoManual: m.custo_manual, precoManual: m.preco_manual, codigo: m.codigo,
         unidade: m.unidade, unidadeSecundaria: m.unidade_secundaria, fatorConversao: m.fator_conversao,
+        conversaoOp: m.conversao_op,
       });
 
       const mestrePorId = new Map(mestres.map((m) => [m.id, m]));
