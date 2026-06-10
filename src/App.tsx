@@ -10,6 +10,7 @@ import MaisVendidos from "@/pages/MaisVendidos";
 import Importar from "@/pages/Importar";
 import ImportarCatalogo from "@/pages/ImportarCatalogo";
 import Vincular from "@/pages/Vincular";
+import Vinculos from "@/pages/Vinculos";
 import ProdutoMontado from "@/pages/ProdutoMontado";
 import Configuracoes from "@/pages/Configuracoes";
 
@@ -28,6 +29,7 @@ export default function App() {
                 <Route path="/importar" element={<Importar />} />
                 <Route path="/catalogo" element={<ImportarCatalogo />} />
                 <Route path="/vincular" element={<Vincular />} />
+                <Route path="/vinculos" element={<Vinculos />} />
                 <Route path="/montado" element={<ProdutoMontado />} />
                 <Route path="/config" element={<Configuracoes />} />
               </Route>

@@ -9,6 +9,7 @@ const links = [
   { to: "/catalogo", label: "Importar catálogo" },
   { to: "/importar", label: "Importar notas" },
   { to: "/vincular", label: "Vincular itens" },
+  { to: "/vinculos", label: "Vínculos (fator)" },
   { to: "/montado", label: "Produto montado" },
   { to: "/config", label: "Configurações" },
 ];
