@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -32,6 +33,7 @@ export default function Vincular() {
   const queryClient = useQueryClient();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [autoBusy, setAutoBusy] = useState(false);
+  const [busca, setBusca] = useState("");
 
   const pendentesQuery = useQuery({
     queryKey: ["pendentes"],
@@ -44,6 +46,22 @@ export default function Vincular() {
 
   const pendentes = pendentesQuery.data ?? [];
   const mestres = mestresQuery.data ?? [];
+
+  const pendentesFiltrados = useMemo(() => {
+    const q = busca
+      .trim()
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .toLowerCase();
+    if (!q) return pendentes;
+    return pendentes.filter((it) => {
+      const alvo = `${it.cprod} ${it.descricao}`
+        .normalize("NFD")
+        .replace(/[̀-ͯ]/g, "")
+        .toLowerCase();
+      return alvo.includes(q);
+    });
+  }, [pendentes, busca]);
 
   useEffect(() => {
     if (pendentesQuery.isError) {
@@ -169,19 +187,30 @@ export default function Vincular() {
       </div>
 
       <Card className="rounded-2xl shadow-sm">
-        <CardHeader className="flex flex-row items-center justify-between gap-4">
-          <CardTitle className="text-base font-semibold">
-            Fila de pendentes{!loading ? ` (${pendentes.length})` : ""}
-          </CardTitle>
+        <CardHeader className="gap-3">
+          <div className="flex flex-row items-center justify-between gap-4">
+            <CardTitle className="text-base font-semibold">
+              Fila de pendentes
+              {!loading ? ` (${busca ? `${pendentesFiltrados.length}/` : ""}${pendentes.length})` : ""}
+            </CardTitle>
+            {pendentes.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={autoBusy || mestres.length === 0}
+                onClick={() => void autoVincularDescricao()}
+              >
+                {autoBusy ? "Vinculando…" : "Auto-vincular idênticos"}
+              </Button>
+            )}
+          </div>
           {pendentes.length > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={autoBusy || mestres.length === 0}
-              onClick={() => void autoVincularDescricao()}
-            >
-              {autoBusy ? "Vinculando…" : "Auto-vincular idênticos"}
-            </Button>
+            <Input
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+              placeholder="Buscar item da nota (código ou descrição)…"
+              className="max-w-sm"
+            />
           )}
         </CardHeader>
         <CardContent>
@@ -190,6 +219,10 @@ export default function Vincular() {
           ) : pendentes.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               Nenhum item pendente de vínculo.
+            </p>
+          ) : pendentesFiltrados.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Nenhum item encontrado para “{busca}”.
             </p>
           ) : (
             <Table>
@@ -211,7 +244,7 @@ export default function Vincular() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {pendentes.map((item) => (
+                {pendentesFiltrados.map((item) => (
                   <VincularRow
                     key={item.id}
                     item={item}
