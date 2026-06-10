@@ -8,6 +8,7 @@ const links = [
   { to: "/mais-vendidos", label: "Mais vendidos" },
   { to: "/catalogo", label: "Importar catálogo" },
   { to: "/importar", label: "Importar notas" },
+  { to: "/notas", label: "Notas" },
   { to: "/vincular", label: "Vincular itens" },
   { to: "/vinculos", label: "Vínculos (fator)" },
   { to: "/montado", label: "Produto montado" },

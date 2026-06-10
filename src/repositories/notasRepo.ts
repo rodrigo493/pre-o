@@ -7,3 +7,12 @@ export async function createNota(input: NotaInsert): Promise<NotaRow> {
   if (error) throw error;
   return data;
 }
+
+export async function listNotas(): Promise<NotaRow[]> {
+  const { data, error } = await supabase
+    .from("notas")
+    .select("*")
+    .order("data_emissao", { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}

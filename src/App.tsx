@@ -8,6 +8,7 @@ import Login from "@/pages/Login";
 import Produtos from "@/pages/Produtos";
 import MaisVendidos from "@/pages/MaisVendidos";
 import Importar from "@/pages/Importar";
+import Notas from "@/pages/Notas";
 import ImportarCatalogo from "@/pages/ImportarCatalogo";
 import Vincular from "@/pages/Vincular";
 import Vinculos from "@/pages/Vinculos";
@@ -30,6 +31,7 @@ export default function App() {
                 <Route path="/catalogo" element={<ImportarCatalogo />} />
                 <Route path="/vincular" element={<Vincular />} />
                 <Route path="/vinculos" element={<Vinculos />} />
+                <Route path="/notas" element={<Notas />} />
                 <Route path="/montado" element={<ProdutoMontado />} />
                 <Route path="/config" element={<Configuracoes />} />
               </Route>

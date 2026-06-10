@@ -34,6 +34,7 @@ export default function Vincular() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [autoBusy, setAutoBusy] = useState(false);
   const [busca, setBusca] = useState("");
+  const [fornecedor, setFornecedor] = useState("");
 
   const pendentesQuery = useQuery({
     queryKey: ["pendentes"],
@@ -47,21 +48,30 @@ export default function Vincular() {
   const pendentes = pendentesQuery.data ?? [];
   const mestres = mestresQuery.data ?? [];
 
+  const fornecedores = useMemo(
+    () =>
+      Array.from(new Set(pendentes.map((it) => it.fornecedor).filter(Boolean) as string[])).sort(
+        (a, b) => a.localeCompare(b, "pt-BR"),
+      ),
+    [pendentes],
+  );
+
   const pendentesFiltrados = useMemo(() => {
     const q = busca
       .trim()
       .normalize("NFD")
       .replace(/[̀-ͯ]/g, "")
       .toLowerCase();
-    if (!q) return pendentes;
     return pendentes.filter((it) => {
+      const matchForn = !fornecedor || it.fornecedor === fornecedor;
+      if (!q) return matchForn;
       const alvo = `${it.cprod} ${it.descricao}`
         .normalize("NFD")
         .replace(/[̀-ͯ]/g, "")
         .toLowerCase();
-      return alvo.includes(q);
+      return matchForn && alvo.includes(q);
     });
-  }, [pendentes, busca]);
+  }, [pendentes, busca, fornecedor]);
 
   useEffect(() => {
     if (pendentesQuery.isError) {
@@ -205,12 +215,26 @@ export default function Vincular() {
             )}
           </div>
           {pendentes.length > 0 && (
-            <Input
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-              placeholder="Buscar item da nota (código ou descrição)…"
-              className="max-w-sm"
-            />
+            <div className="flex flex-wrap gap-2">
+              <Input
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                placeholder="Buscar item da nota (código ou descrição)…"
+                className="max-w-sm"
+              />
+              <select
+                value={fornecedor}
+                onChange={(e) => setFornecedor(e.target.value)}
+                className="h-10 max-w-xs rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="">Todos os fornecedores ({fornecedores.length})</option>
+                {fornecedores.map((f) => (
+                  <option key={f} value={f}>
+                    {f}
+                  </option>
+                ))}
+              </select>
+            </div>
           )}
         </CardHeader>
         <CardContent>
