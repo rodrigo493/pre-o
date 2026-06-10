@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
@@ -11,11 +12,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { listNotas } from "@/repositories/notasRepo";
-import { listItensPorNota } from "@/repositories/itensNotaRepo";
-import { formatCurrency } from "@/lib/pricing";
-import type { Database } from "@/integrations/supabase/types";
-
-type NotaRow = Database["public"]["Tables"]["notas"]["Row"];
 
 function errMsg(err: unknown): string {
   return err instanceof Error ? err.message : "erro desconhecido";
@@ -29,17 +25,12 @@ function dataBR(iso: string): string {
 }
 
 export default function Notas() {
+  const navigate = useNavigate();
   const [busca, setBusca] = useState("");
-  const [sel, setSel] = useState<NotaRow | null>(null);
 
   const notasQuery = useQuery({ queryKey: ["notas"], queryFn: listNotas });
-  const itensQuery = useQuery({
-    queryKey: ["itens-nota", sel?.id],
-    queryFn: () => listItensPorNota(sel!.id),
-    enabled: !!sel,
-  });
-
   const notas = notasQuery.data ?? [];
+
   const filtradas = useMemo(() => {
     const q = normalize(busca.trim());
     if (!q) return notas;
@@ -48,18 +39,12 @@ export default function Notas() {
     );
   }, [notas, busca]);
 
-  const itens = itensQuery.data ?? [];
-  const totalNota = itens.reduce(
-    (s, i) => s + Number(i.custo_unitario) * Number(i.quantidade ?? 1),
-    0,
-  );
-
   return (
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Notas fiscais</h1>
         <p className="mt-0.5 text-sm text-muted-foreground">
-          Notas importadas. Clique numa nota para ver os itens dela.
+          Notas importadas. Clique numa nota para abrir os itens e valores dela.
         </p>
       </div>
 
@@ -97,8 +82,8 @@ export default function Notas() {
                 {filtradas.map((n) => (
                   <TableRow
                     key={n.id}
-                    onClick={() => setSel(n)}
-                    className={`cursor-pointer ${sel?.id === n.id ? "bg-accent" : ""}`}
+                    onClick={() => navigate(`/notas/${n.id}`)}
+                    className="cursor-pointer hover:bg-accent"
                   >
                     <TableCell className="font-mono-num text-muted-foreground">
                       {dataBR(n.data_emissao)}
@@ -118,70 +103,6 @@ export default function Notas() {
           )}
         </CardContent>
       </Card>
-
-      {sel && (
-        <Card className="rounded-2xl shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-base font-semibold">
-              Itens da nota {sel.numero ? `nº ${sel.numero}` : ""} — {sel.fornecedor ?? "sem fornecedor"}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {itensQuery.isLoading ? (
-              <p className="text-sm text-muted-foreground">Carregando itens…</p>
-            ) : itens.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhum item nesta nota.</p>
-            ) : (
-              <>
-                <Table>
-                  <TableHeader>
-                    <TableRow className="[&_th]:text-[11px] [&_th]:font-medium [&_th]:uppercase [&_th]:tracking-wide [&_th]:text-muted-foreground">
-                      <TableHead>cProd</TableHead>
-                      <TableHead>Descrição</TableHead>
-                      <TableHead>Unid.</TableHead>
-                      <TableHead className="text-right">Qtd</TableHead>
-                      <TableHead className="text-right">Custo unit.</TableHead>
-                      <TableHead className="text-right">Subtotal</TableHead>
-                      <TableHead>Vínculo</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {itens.map((i) => (
-                      <TableRow key={i.id}>
-                        <TableCell className="font-mono text-xs">{i.cprod}</TableCell>
-                        <TableCell className="max-w-[24rem]">
-                          <span className="line-clamp-2">{i.descricao}</span>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">{i.unidade ?? "—"}</TableCell>
-                        <TableCell className="text-right font-mono-num text-muted-foreground">
-                          {Number(i.quantidade ?? 1)}
-                        </TableCell>
-                        <TableCell className="text-right font-mono-num text-muted-foreground">
-                          {formatCurrency(Number(i.custo_unitario))}
-                        </TableCell>
-                        <TableCell className="text-right font-mono-num">
-                          {formatCurrency(Number(i.custo_unitario) * Number(i.quantidade ?? 1))}
-                        </TableCell>
-                        <TableCell>
-                          {i.produto_mestre_id ? (
-                            <span className="text-xs text-emerald-600">vinculado</span>
-                          ) : (
-                            <span className="text-xs text-amber-600">pendente</span>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-                <p className="mt-3 text-right text-sm">
-                  Total da nota:{" "}
-                  <strong className="font-mono-num">{formatCurrency(totalNota)}</strong>
-                </p>
-              </>
-            )}
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }

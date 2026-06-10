@@ -8,6 +8,12 @@ export async function createNota(input: NotaInsert): Promise<NotaRow> {
   return data;
 }
 
+export async function getNotaById(id: string): Promise<NotaRow | null> {
+  const { data, error } = await supabase.from("notas").select("*").eq("id", id).maybeSingle();
+  if (error) throw error;
+  return data ?? null;
+}
+
 export async function listNotas(): Promise<NotaRow[]> {
   const { data, error } = await supabase
     .from("notas")
