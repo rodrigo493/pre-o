@@ -29,6 +29,7 @@ export default function Produtos() {
   const produtosQuery = useProdutosResolvidos();
   const [busca, setBusca] = useState("");
   const [grupo, setGrupo] = useState("");
+  const [soVinculados, setSoVinculados] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [editando, setEditando] = useState<LinhaProduto | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -52,9 +53,12 @@ export default function Produtos() {
         (l.codigo ?? "").toLowerCase().includes(q) ||
         (l.categoria ?? "").toLowerCase().includes(q);
       const matchGrupo = !grupo || l.categoria === grupo;
-      return matchBusca && matchGrupo;
+      const matchVinculo = !soVinculados || l.temVinculo;
+      return matchBusca && matchGrupo && matchVinculo;
     });
-  }, [linhas, busca, grupo]);
+  }, [linhas, busca, grupo, soVinculados]);
+
+  const totalVinculados = useMemo(() => linhas.filter((l) => l.temVinculo).length, [linhas]);
 
   const toggleMaisVendido = async (linha: LinhaProduto) => {
     setTogglingId(linha.id);
@@ -157,6 +161,15 @@ export default function Produtos() {
                 </option>
               ))}
             </select>
+            <label className="flex h-10 cursor-pointer items-center gap-2 rounded-md border border-input bg-background px-3 text-sm">
+              <input
+                type="checkbox"
+                checked={soVinculados}
+                onChange={(e) => setSoVinculados(e.target.checked)}
+                className="h-4 w-4"
+              />
+              Somente vinculados ({totalVinculados})
+            </label>
           </div>
         </CardHeader>
         <CardContent>

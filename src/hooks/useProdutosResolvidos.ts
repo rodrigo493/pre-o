@@ -5,7 +5,7 @@ import { listComponentes } from "@/repositories/componentesMontadoRepo";
 import { getConfig } from "@/repositories/configRepo";
 import { resolvePrice, type ItemNota, type ProdutoMestre, type ResolvedPrice } from "@/lib/priceResolution";
 
-export interface LinhaProduto extends ProdutoMestre { resolvido: ResolvedPrice; maisVendido: boolean; }
+export interface LinhaProduto extends ProdutoMestre { resolvido: ResolvedPrice; maisVendido: boolean; temVinculo: boolean; }
 
 export function useProdutosResolvidos() {
   return useQuery({
@@ -81,6 +81,7 @@ export function useProdutosResolvidos() {
         return {
           ...produto,
           maisVendido: m.mais_vendido ?? false,
+          temVinculo: (porMestre.get(m.id)?.length ?? 0) > 0,
           resolvido: resolvePrice(produto, porMestre.get(m.id) ?? [], cfg, hoje),
         };
       });
