@@ -33,3 +33,8 @@ export function separarComposicao(itens: ComposicaoItem[]): ComposicaoSeparada {
     fabricados: itens.filter((it) => ehFabricado(it.codigo)),
   };
 }
+
+/** Código de peça usinada (US): a nota fiscal do próprio código é a mão de obra do torneiro. */
+export function ehUsinado(codigo: string): boolean {
+  return prefixoDoCodigo(codigo) === "US";
+}

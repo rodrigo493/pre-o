@@ -4,6 +4,7 @@ import {
   prefixoDoCodigo,
   ehFabricado,
   separarComposicao,
+  ehUsinado,
 } from "@/lib/composicaoClassify";
 import type { ComposicaoItem } from "@/lib/composicaoParser";
 
@@ -75,5 +76,19 @@ describe("separarComposicao", () => {
 describe("PREFIXOS_FABRICADOS", () => {
   it("contém exatamente os prefixos do spec", () => {
     expect([...PREFIXOS_FABRICADOS].sort()).toEqual(["EST", "KIT", "MO", "MOF", "MOP"]);
+  });
+});
+
+describe("ehUsinado", () => {
+  it("reconhece códigos com prefixo US", () => {
+    expect(ehUsinado("US.V12.088")).toBe(true);
+    expect(ehUsinado("us.001")).toBe(true);
+    expect(ehUsinado("US 123")).toBe(true);
+  });
+  it("não confunde outros prefixos", () => {
+    expect(ehUsinado("USB.123")).toBe(false);
+    expect(ehUsinado("TB.050.30")).toBe(false);
+    expect(ehUsinado("LA.001")).toBe(false);
+    expect(ehUsinado("")).toBe(false);
   });
 });

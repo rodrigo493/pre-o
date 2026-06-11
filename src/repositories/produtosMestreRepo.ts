@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
+import { ehUsinado } from "@/lib/composicaoClassify";
 
 type Row = Database["public"]["Tables"]["produtos_mestre"]["Row"];
 type Insert = Database["public"]["Tables"]["produtos_mestre"]["Insert"];
@@ -60,13 +61,15 @@ export async function upsertCatalogByCodigo(produtos: CatalogUpsert[]): Promise<
   const paraAtualizar: Insert[] = [];
   for (const p of produtos) {
     const id = idPorCodigo.get(p.codigo);
-    const base = {
+    const base: Insert = {
       codigo: p.codigo,
       nome: p.nome,
       unidade: p.unidade,
       unidade_secundaria: p.unidade_secundaria,
       tipo: p.tipo,
       categoria: p.categoria,
+      // Prefixo US: a nota do próprio código é a mão de obra do torneiro.
+      ...(p.tipo === "montado" && ehUsinado(p.codigo) ? { soma_nota: true } : {}),
     };
     if (id) paraAtualizar.push({ id, ...base });
     else paraInserir.push(base);
@@ -116,6 +119,7 @@ export async function findOrCreateMontadoByCodigo(
     nome: input.nome,
     categoria: input.categoria,
     tipo: "montado" as const,
+    ...(ehUsinado(codigo) ? { soma_nota: true } : {}),
   };
 
   const { data: existentes, error: selErr } = await supabase
