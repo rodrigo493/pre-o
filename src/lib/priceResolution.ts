@@ -30,6 +30,10 @@ export interface ProdutoMestre {
   conversaoOp?: ConversaoOp | null;
   /** Custo total dos componentes (montado): soma de custo×qtd. null = sem composição. */
   custoComponentes?: number | null;
+  /** Soma ao custo a mão de obra da nota do próprio código (US). */
+  somaNota?: boolean;
+  /** Minutos de corte laser da peça (TB/LA). null = não corta no laser. */
+  tempoCorteMin?: number | null;
 }
 
 export interface PriceOrigem {
