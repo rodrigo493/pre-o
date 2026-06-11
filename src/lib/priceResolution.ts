@@ -63,18 +63,24 @@ function itensNaJanela(itens: ItemNota[], hoje: Date): ItemNota[] {
   return itens.filter((it) => startOfDay(parseISO(it.dataEmissao)) >= limite);
 }
 
-export function resolvePrice(
+export interface CustoNotaResult {
+  custo: number | null;
+  origem: PriceOrigem | null;
+  numNotas: number;
+}
+
+/**
+ * Maior custo unitário da nota na janela móvel de 3 meses, convertido para a
+ * unidade do produto. Prioridade: fator do vínculo (cProd, sempre divide) →
+ * fator do produto (op ÷/×). Usado pelo comprado (resolvePrice) e pela parcela
+ * de mão de obra dos montados com soma_nota.
+ */
+export function resolveCustoNota(
   produto: ProdutoMestre,
   itens: ItemNota[],
-  config: PricingPercentages,
   hoje: Date,
-): ResolvedPrice {
+): CustoNotaResult {
   const recentes = itensNaJanela(itens, hoje);
-
-  // Converte o custo de cada item da nota para a unidade do produto.
-  // Prioridade: fator do vínculo (cProd, sempre divide) → fator do produto (op ÷/×).
-  // O fator do produto é aplicado SEMPRE que definido (não depende do texto da unidade).
-  const conversaoPendente = false;
   const convertidos = recentes.map((it) => {
     let custo = it.custoUnitario;
     if (it.fatorConversao != null && it.fatorConversao > 0) {
@@ -87,15 +93,30 @@ export function resolvePrice(
     }
     return { item: it, custo };
   });
-
   const maior = convertidos.reduce<{ item: ItemNota; custo: number } | null>(
     (acc, c) => (acc == null || c.custo > acc.custo ? c : acc),
     null,
   );
-  const custoComprado = maior?.custo ?? null;
-  const origem: PriceOrigem | null = maior
-    ? { notaId: maior.item.notaId, notaNumero: maior.item.notaNumero, dataEmissao: maior.item.dataEmissao }
-    : null;
+  return {
+    custo: maior?.custo ?? null,
+    origem: maior
+      ? { notaId: maior.item.notaId, notaNumero: maior.item.notaNumero, dataEmissao: maior.item.dataEmissao }
+      : null,
+    numNotas: recentes.length,
+  };
+}
+
+export function resolvePrice(
+  produto: ProdutoMestre,
+  itens: ItemNota[],
+  config: PricingPercentages,
+  hoje: Date,
+): ResolvedPrice {
+  // Converte o custo de cada item da nota para a unidade do produto.
+  // Prioridade: fator do vínculo (cProd, sempre divide) → fator do produto (op ÷/×).
+  // O fator do produto é aplicado SEMPRE que definido (não depende do texto da unidade).
+  const conversaoPendente = false;
+  const { custo: custoComprado, origem, numNotas } = resolveCustoNota(produto, itens, hoje);
 
   // Custo do montado = soma dos componentes (se houver composição); senão custo manual.
   const custoMontado =
@@ -114,7 +135,7 @@ export function resolvePrice(
       margemPercent: margem(produto.precoManual, custoBase),
       status: "travado",
       origem: produto.tipo === "montado" ? null : origem,
-      numNotasPeriodo: recentes.length,
+      numNotasPeriodo: numNotas,
       conversaoPendente: produto.tipo === "montado" ? false : conversaoPendente,
     };
   }
@@ -161,7 +182,7 @@ export function resolvePrice(
     margemPercent: margem(preco, custoComprado),
     status: "ok",
     origem,
-    numNotasPeriodo: recentes.length,
+    numNotasPeriodo: numNotas,
     conversaoPendente,
   };
 }

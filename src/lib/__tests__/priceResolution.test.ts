@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolvePrice, type ItemNota, type ProdutoMestre } from "@/lib/priceResolution";
+import { resolvePrice, resolveCustoNota, type ItemNota, type ProdutoMestre } from "@/lib/priceResolution";
 import { defaultPercentages, calculateSellingPrice } from "@/lib/pricing";
 
 const HOJE = new Date("2026-06-06T12:00:00-03:00");
@@ -192,5 +192,46 @@ describe("resolvePrice — montado", () => {
     expect(r.custoBase).toBe(1000);
     const esperado = calculateSellingPrice(1000, cfg).precoComIPI;
     expect(r.precoVenda).toBeCloseTo(esperado, 2);
+  });
+});
+
+describe("resolveCustoNota — maior custo da nota do próprio código", () => {
+  it("retorna o maior custo convertido na janela de 3 meses", () => {
+    const produto: ProdutoMestre = { id: "p1", nome: "US.V12.088", tipo: "montado" };
+    const r = resolveCustoNota(
+      produto,
+      [item(10, "2026-05-01"), item(15, "2026-04-10"), item(99, "2026-01-01")],
+      HOJE,
+    );
+    expect(r.custo).toBe(15);
+    expect(r.numNotas).toBe(2);
+    expect(r.origem?.dataEmissao).toBe("2026-04-10");
+  });
+
+  it("sem item na janela → custo null", () => {
+    const produto: ProdutoMestre = { id: "p1", nome: "US.V12.088", tipo: "montado" };
+    const r = resolveCustoNota(produto, [item(99, "2026-01-01")], HOJE);
+    expect(r.custo).toBeNull();
+    expect(r.origem).toBeNull();
+    expect(r.numNotas).toBe(0);
+  });
+
+  it("aplica o fator do produto com operação multiplicar (kg → barra)", () => {
+    const tubo: ProdutoMestre = {
+      id: "p1", nome: "Tubo 50x30x2", tipo: "comprado",
+      fatorConversao: 14.5, conversaoOp: "multiplicar",
+    };
+    const r = resolveCustoNota(tubo, [item(7.56, "2026-05-01")], HOJE);
+    expect(r.custo).toBeCloseTo(109.62, 2); // 7,56 R$/kg × 14,5 kg/barra
+  });
+
+  it("fator do vínculo (cProd) tem prioridade e sempre divide", () => {
+    const p: ProdutoMestre = {
+      id: "p1", nome: "X", tipo: "comprado",
+      fatorConversao: 2, conversaoOp: "multiplicar",
+    };
+    const it: ItemNota = { ...item(100, "2026-05-01"), fatorConversao: 100 };
+    const r = resolveCustoNota(p, [it], HOJE);
+    expect(r.custo).toBe(1); // 100 / 100 (vínculo vence o fator do produto)
   });
 });
