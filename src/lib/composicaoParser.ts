@@ -13,6 +13,7 @@ export interface ComposicaoItem {
 export interface ComposicaoResult {
   produtoCodigo: string | null;
   produtoDescricao: string | null;
+  produtoGrupo: string | null;
   itens: ComposicaoItem[];
 }
 
@@ -73,17 +74,59 @@ function findAnchors(rows: Array<Array<{ str: string; x: number }>>): Anchors | 
   return null;
 }
 
-function extrairCabecalho(rows: Array<Array<{ str: string; x: number }>>): {
-  codigo: string | null;
-  descricao: string | null;
-} {
-  const texto = rows.map((cells) => cells.map((c) => c.str).join(" ")).join("\n");
-  const cod = texto.match(/Código do Produto:\s*([A-Za-z0-9.\-/]+)/i);
-  const desc = texto.match(/Descrição do produto:\s*(.+)/i);
-  return {
-    codigo: cod ? cod[1].trim() : null,
-    descricao: desc ? desc[1].trim() : null,
-  };
+type Cabecalho = { codigo: string | null; descricao: string | null; grupo: string | null };
+
+const ROTULOS_CABECALHO: Array<{ chave: keyof Cabecalho; re: RegExp }> = [
+  { chave: "codigo", re: /C[óo]digo do Produto:?/i },
+  { chave: "descricao", re: /Descri[çc][ãa]o do produto:?/i },
+  { chave: "grupo", re: /Grupo de Produto:?/i },
+];
+
+function ehRotuloCabecalho(str: string): boolean {
+  return /(C[óo]digo do Produto|Descri[çc][ãa]o do produto|Grupo de Produto)/i.test(str);
+}
+
+/**
+ * Extrai o cabeçalho POR POSIÇÃO (não por regex no texto concatenado, que
+ * captura "Descri" quando os valores estão na linha de baixo do rótulo).
+ * Para cada rótulo: 1) valor na MESMA linha, à direita do rótulo e antes do
+ * próximo rótulo; 2) senão, valor na LINHA SEGUINTE, na coluna do rótulo.
+ * Best-effort: imperfeições são corrigidas no diálogo editável.
+ */
+function extrairCabecalho(rows: Array<Array<{ str: string; x: number }>>): Cabecalho {
+  const resultado: Cabecalho = { codigo: null, descricao: null, grupo: null };
+
+  for (let i = 0; i < rows.length; i++) {
+    const cells = rows[i];
+    for (const { chave, re } of ROTULOS_CABECALHO) {
+      if (resultado[chave] !== null) continue;
+      const label = cells.find((c) => re.test(c.str));
+      if (!label) continue;
+
+      // Limite direito da coluna = x do próximo rótulo na mesma linha.
+      const proximoX = cells
+        .filter((c) => c.x > label.x && ehRotuloCabecalho(c.str))
+        .reduce((min, c) => Math.min(min, c.x), Infinity);
+
+      const mesmaLinha = cells
+        .filter((c) => c.x > label.x && c.x < proximoX && !ehRotuloCabecalho(c.str))
+        .map((c) => c.str)
+        .join(" ")
+        .trim();
+      if (mesmaLinha) {
+        resultado[chave] = mesmaLinha;
+        continue;
+      }
+
+      const linhaSeguinte = (rows[i + 1] ?? [])
+        .filter((c) => c.x >= label.x - 15 && c.x < proximoX - 15 && !ehRotuloCabecalho(c.str))
+        .map((c) => c.str)
+        .join(" ")
+        .trim();
+      if (linhaSeguinte) resultado[chave] = linhaSeguinte;
+    }
+  }
+  return resultado;
 }
 
 /**
@@ -95,10 +138,7 @@ export function parseComposicaoFromPositionedItems(
   pages: Array<Array<PDFTextItem>>,
 ): ComposicaoResult {
   let anchors: Anchors | null = null;
-  let cabecalho: { codigo: string | null; descricao: string | null } = {
-    codigo: null,
-    descricao: null,
-  };
+  let cabecalho: Cabecalho = { codigo: null, descricao: null, grupo: null };
   const itens: ComposicaoItem[] = [];
 
   for (const pageItems of pages) {
@@ -135,7 +175,12 @@ export function parseComposicaoFromPositionedItems(
     }
   }
 
-  return { produtoCodigo: cabecalho.codigo, produtoDescricao: cabecalho.descricao, itens };
+  return {
+    produtoCodigo: cabecalho.codigo,
+    produtoDescricao: cabecalho.descricao,
+    produtoGrupo: cabecalho.grupo,
+    itens,
+  };
 }
 
 /** Soma quantidades de itens com o mesmo código (normalizado em maiúsculas). */

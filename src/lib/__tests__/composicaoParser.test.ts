@@ -52,6 +52,7 @@ describe("parseComposicaoFromPositionedItems", () => {
     const result = parseComposicaoFromPositionedItems([page]);
     expect(result.produtoCodigo).toBe("V5P");
     expect(result.produtoDescricao).toContain("APARELHO V5 PLUS");
+    expect(result.produtoGrupo).toBeNull(); // página sintética não tem rótulo de grupo
     expect(result.itens).toHaveLength(4);
 
     const agg = agregarPorCodigo(result.itens);
