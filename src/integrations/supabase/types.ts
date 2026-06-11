@@ -2,8 +2,8 @@ export interface Database {
   public: {
     Tables: {
       produtos_mestre: {
-        Row: { id: string; nome: string; categoria: string | null; tipo: "comprado" | "montado"; custo_manual: number | null; preco_manual: number | null; codigo: string | null; unidade: string | null; unidade_secundaria: string | null; fator_conversao: number | null; conversao_op: "dividir" | "multiplicar" | null; mais_vendido: boolean; created_at: string };
-        Insert: { id?: string; nome: string; categoria?: string | null; tipo?: "comprado" | "montado"; custo_manual?: number | null; preco_manual?: number | null; codigo?: string | null; unidade?: string | null; unidade_secundaria?: string | null; fator_conversao?: number | null; conversao_op?: "dividir" | "multiplicar" | null; mais_vendido?: boolean; created_at?: string };
+        Row: { id: string; nome: string; categoria: string | null; tipo: "comprado" | "montado"; custo_manual: number | null; preco_manual: number | null; codigo: string | null; unidade: string | null; unidade_secundaria: string | null; fator_conversao: number | null; conversao_op: "dividir" | "multiplicar" | null; mais_vendido: boolean; soma_nota: boolean; tempo_corte_min: number | null; created_at: string };
+        Insert: { id?: string; nome: string; categoria?: string | null; tipo?: "comprado" | "montado"; custo_manual?: number | null; preco_manual?: number | null; codigo?: string | null; unidade?: string | null; unidade_secundaria?: string | null; fator_conversao?: number | null; conversao_op?: "dividir" | "multiplicar" | null; mais_vendido?: boolean; soma_nota?: boolean; tempo_corte_min?: number | null; created_at?: string };
         Update: Partial<Database["public"]["Tables"]["produtos_mestre"]["Insert"]>;
         Relationships: [];
       };
@@ -70,7 +70,7 @@ export interface Database {
         ];
       };
       config_markup: {
-        Row: { id: number; vendas: number; marketing: number; custo_operacional: number; ipi: number; icms: number; pis: number; cofins: number; csll: number; ir: number; lucro: number; desgaste_maquinas: number; frete: number };
+        Row: { id: number; vendas: number; marketing: number; custo_operacional: number; ipi: number; icms: number; pis: number; cofins: number; csll: number; ir: number; lucro: number; desgaste_maquinas: number; frete: number; valor_hora_laser: number };
         Insert: Partial<Database["public"]["Tables"]["config_markup"]["Row"]> & { id?: number };
         Update: Partial<Database["public"]["Tables"]["config_markup"]["Row"]>;
         Relationships: [];
