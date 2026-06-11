@@ -23,6 +23,7 @@ import { formatMargem, formatMoeda } from "@/lib/produtoFormat";
 import EditarMontadoDialog, {
   type ProdutoMontadoRow,
 } from "@/components/EditarMontadoDialog";
+import ImportarFichaDialog from "@/components/ImportarFichaDialog";
 
 function errMsg(err: unknown): string {
   return err instanceof Error ? err.message : "erro desconhecido";
@@ -98,12 +99,15 @@ export default function ProdutoMontado() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Produto montado</h1>
-        <p className="mt-0.5 text-sm text-muted-foreground">
-          Produtos compostos por outros produtos Nomus. O custo soma os componentes e o preço sai
-          do markup (impostos + lucro). Você pode travar um preço manual se quiser.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Produto montado</h1>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            Produtos compostos por outros produtos Nomus. O custo soma os componentes e o preço sai
+            do markup (impostos + lucro). Você pode travar um preço manual se quiser.
+          </p>
+        </div>
+        <ImportarFichaDialog />
       </div>
 
       <Card className="rounded-2xl shadow-sm">
