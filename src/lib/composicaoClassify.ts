@@ -28,10 +28,8 @@ export interface ComposicaoSeparada {
 }
 
 export function separarComposicao(itens: ComposicaoItem[]): ComposicaoSeparada {
-  const materiaPrima: ComposicaoItem[] = [];
-  const fabricados: ComposicaoItem[] = [];
-  for (const it of itens) {
-    (ehFabricado(it.codigo) ? fabricados : materiaPrima).push(it);
-  }
-  return { materiaPrima, fabricados };
+  return {
+    materiaPrima: itens.filter((it) => !ehFabricado(it.codigo)),
+    fabricados: itens.filter((it) => ehFabricado(it.codigo)),
+  };
 }
