@@ -13,12 +13,13 @@ import {
   percentageLabels,
   type PricingPercentages,
 } from "@/lib/pricing";
+import type { AppConfig } from "@/lib/markupConfig";
 
 function errMsg(err: unknown): string {
   return err instanceof Error ? err.message : "erro desconhecido";
 }
 
-type ConfigForm = PricingPercentages;
+type ConfigForm = AppConfig;
 
 const percentageKeys = Object.keys(percentageLabels) as Array<keyof PricingPercentages>;
 
@@ -40,7 +41,7 @@ export default function Configuracoes() {
     reset,
     formState: { isSubmitting },
   } = useForm<ConfigForm>({
-    defaultValues: { ...defaultPercentages },
+    defaultValues: { ...defaultPercentages, valorHoraLaser: 0 },
   });
 
   useEffect(() => {
@@ -50,7 +51,7 @@ export default function Configuracoes() {
   }, [configQuery.data, reset]);
 
   const onSubmit = handleSubmit(async (values) => {
-    const config: PricingPercentages = {
+    const config: AppConfig = {
       vendas: sanitize(values.vendas),
       marketing: sanitize(values.marketing),
       custoOperacional: sanitize(values.custoOperacional),
@@ -62,6 +63,7 @@ export default function Configuracoes() {
       ir: sanitize(values.ir),
       lucro: sanitize(values.lucro),
       desgasteMaquinas: sanitize(values.desgasteMaquinas),
+      valorHoraLaser: sanitize(values.valorHoraLaser),
     };
     try {
       await saveConfig(config);
@@ -74,7 +76,7 @@ export default function Configuracoes() {
   });
 
   const restaurarPadrao = () => {
-    reset({ ...defaultPercentages });
+    reset({ ...defaultPercentages, valorHoraLaser: 0 });
     toast.info("Valores padrão preenchidos. Clique em Salvar para aplicar.");
   };
 
@@ -139,6 +141,26 @@ export default function Configuracoes() {
                     />
                   </div>
                 ))}
+              </div>
+
+              <div className="flex flex-col gap-1.5 border-t pt-4 sm:max-w-xs">
+                <Label
+                  htmlFor="cfg-valorHoraLaser"
+                  className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground"
+                >
+                  Valor da hora do laser (R$/h)
+                </Label>
+                <Input
+                  id="cfg-valorHoraLaser"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  className="font-mono-num"
+                  {...register("valorHoraLaser", { valueAsNumber: true })}
+                />
+                <span className="text-xs text-muted-foreground">
+                  Usado no custo das peças cortadas no laser (TB/LA): tempo de corte ÷ 60 × valor da hora.
+                </span>
               </div>
 
               <div className="flex flex-wrap gap-2">
