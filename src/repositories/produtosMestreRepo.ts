@@ -95,3 +95,48 @@ export async function upsertCatalogByCodigo(produtos: CatalogUpsert[]): Promise<
 
   return total;
 }
+
+export interface FindOrCreateMontadoInput {
+  codigo: string;
+  nome: string;
+  categoria: string | null;
+}
+
+/**
+ * Busca o produto pelo código: se existe, atualiza nome/categoria e marca como
+ * montado; se não, cria. Evita o erro de código duplicado do índice único
+ * parcial (mesmo padrão do upsertCatalogByCodigo: decidir insert vs update no
+ * app, nunca ON CONFLICT em `codigo`).
+ */
+export async function findOrCreateMontadoByCodigo(
+  input: FindOrCreateMontadoInput,
+): Promise<string> {
+  const codigo = input.codigo.trim();
+  const patch = {
+    nome: input.nome,
+    categoria: input.categoria,
+    tipo: "montado" as const,
+  };
+
+  const { data: existentes, error: selErr } = await supabase
+    .from("produtos_mestre")
+    .select("id")
+    .eq("codigo", codigo)
+    .limit(1);
+  if (selErr) throw dbErr(selErr);
+
+  if (existentes && existentes.length > 0) {
+    const id = existentes[0].id;
+    const { error } = await supabase.from("produtos_mestre").update(patch).eq("id", id);
+    if (error) throw dbErr(error);
+    return id;
+  }
+
+  const { data, error } = await supabase
+    .from("produtos_mestre")
+    .insert({ codigo, ...patch })
+    .select("id")
+    .single();
+  if (error) throw dbErr(error);
+  return data.id;
+}
