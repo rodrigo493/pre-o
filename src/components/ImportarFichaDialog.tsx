@@ -128,7 +128,7 @@ export default function ImportarFichaDialog() {
       />
       <Button
         type="button"
-        disabled={lendo || produtosQuery.isLoading}
+        disabled={lendo || produtosQuery.isLoading || produtosQuery.isError}
         onClick={() => fileRef.current?.click()}
       >
         {lendo ? "Lendo ficha…" : "Importar ficha técnica (PDF)"}
@@ -137,6 +137,7 @@ export default function ImportarFichaDialog() {
       <Dialog
         open={open}
         onOpenChange={(o) => {
+          if (salvando) return;
           setOpen(o);
           if (!o) setFicha(null);
         }}
