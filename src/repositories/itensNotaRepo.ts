@@ -99,3 +99,18 @@ export async function vincularItem(id: string, produtoMestreId: string): Promise
   const { error } = await supabase.from("itens_nota").update({ produto_mestre_id: produtoMestreId }).eq("id", id);
   if (error) throw error;
 }
+
+/**
+ * Vincula TODOS os itens (de qualquer nota, inclusive antigas) com o mesmo cProd a
+ * um produto do catálogo. Retorna quantos itens foram afetados. Usado na tela da nota
+ * para que um vínculo casado uma vez valha retroativamente em todas as notas.
+ */
+export async function vincularItensPorCprod(cprod: string, produtoMestreId: string): Promise<number> {
+  const { data, error } = await supabase
+    .from("itens_nota")
+    .update({ produto_mestre_id: produtoMestreId })
+    .eq("cprod", cprod)
+    .select("id");
+  if (error) throw error;
+  return data?.length ?? 0;
+}
