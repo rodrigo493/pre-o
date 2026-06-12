@@ -24,7 +24,9 @@ import {
 import {
   aplicarAutoVinculo,
   aplicarAutoVinculoPorDescricao,
+  aplicarAutoVinculoPorCodigo,
   construirMapaDescricao,
+  construirMapaCodigo,
 } from "@/lib/autoLink";
 import { createNota } from "@/repositories/notasRepo";
 import { insertItens } from "@/repositories/itensNotaRepo";
@@ -117,6 +119,7 @@ export default function Importar() {
     try {
       const [vinculos, oficiais] = await Promise.all([listVinculos(), listProdutosMestre()]);
       const mapaDesc = construirMapaDescricao(oficiais.map((p) => ({ id: p.id, nome: p.nome })));
+      const mapaCodigo = construirMapaCodigo(oficiais.map((p) => ({ id: p.id, codigo: p.codigo })));
 
       for (const nota of notas) {
         const validRows = nota.rows.filter((r) => r.custo_unitario > 0);
@@ -138,7 +141,15 @@ export default function Importar() {
           );
           const mestrePorRowId = new Map(vinculados.map((v) => [v.id, v.produtoMestreId]));
 
-          // 2) Para os restantes, auto-vínculo por descrição IDÊNTICA ao produto oficial.
+          // 2) Auto-vínculo por CÓDIGO: cProd (ou token da descrição) igual a um código do catálogo.
+          const restantesCod = validRows.filter((r) => !mestrePorRowId.has(r.id));
+          const { vinculados: porCodigo } = aplicarAutoVinculoPorCodigo(
+            restantesCod.map((r) => ({ id: r.id, cprod: r.cprod, descricao: r.descricao })),
+            mapaCodigo,
+          );
+          for (const v of porCodigo) mestrePorRowId.set(v.id, v.produtoMestreId);
+
+          // 3) Para os restantes, auto-vínculo por descrição IDÊNTICA ao produto oficial.
           const restantes = validRows.filter((r) => !mestrePorRowId.has(r.id));
           const { vinculados: porDesc } = aplicarAutoVinculoPorDescricao(
             restantes.map((r) => ({ id: r.id, descricao: r.descricao })),

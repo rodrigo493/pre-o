@@ -77,6 +77,71 @@ export function aplicarAutoVinculoPorDescricao<T extends { id: string; descricao
   return { vinculados, pendentes };
 }
 
+export interface ProdutoComCodigo {
+  id: string;
+  codigo: string | null;
+}
+
+/** Normaliza código para comparação: trim + maiúsculas (preserva pontos/vírgulas). */
+export function normalizeCodigo(s: string): string {
+  return s.trim().toUpperCase();
+}
+
+/**
+ * Mapa código-normalizado → id do produto. Guarda também a variante sem espaços
+ * (tolera "X3,00 MM" vs "X3,00MM"). Mantém o primeiro em caso de duplicado.
+ */
+export function construirMapaCodigo(produtos: ProdutoComCodigo[]): Map<string, string> {
+  const mapa = new Map<string, string>();
+  for (const p of produtos) {
+    if (!p.codigo) continue;
+    const k = normalizeCodigo(p.codigo);
+    if (!k) continue;
+    if (!mapa.has(k)) mapa.set(k, p.id);
+    const kns = k.replace(/\s+/g, "");
+    if (kns && !mapa.has(kns)) mapa.set(kns, p.id);
+  }
+  return mapa;
+}
+
+/** Candidatos de código a partir do cProd e de tokens da descrição com cara de código. */
+function candidatosDeCodigo(cprod: string, descricao: string): string[] {
+  const out: string[] = [];
+  const c = normalizeCodigo(cprod);
+  if (c) {
+    out.push(c);
+    const cns = c.replace(/\s+/g, "");
+    if (cns !== c) out.push(cns);
+  }
+  for (const tok of descricao.toUpperCase().split(/\s+/)) {
+    const t = tok.trim();
+    if (t.length >= 4 && /\d/.test(t)) out.push(t); // só tokens "código-like" (têm dígito)
+  }
+  return out;
+}
+
+/**
+ * Auto-vincula itens cujo cProd (ou um token da descrição) é igual a um código do
+ * catálogo. Determinístico e de alta confiança (igualdade exata de código).
+ */
+export function aplicarAutoVinculoPorCodigo<T extends { id: string; cprod: string; descricao: string }>(
+  itens: T[],
+  mapaCodigo: Map<string, string>,
+): { vinculados: Array<{ id: string; produtoMestreId: string }>; pendentes: T[] } {
+  const vinculados: Array<{ id: string; produtoMestreId: string }> = [];
+  const pendentes: T[] = [];
+  for (const it of itens) {
+    let mestre: string | undefined;
+    for (const cand of candidatosDeCodigo(it.cprod, it.descricao)) {
+      mestre = mapaCodigo.get(cand);
+      if (mestre) break;
+    }
+    if (mestre) vinculados.push({ id: it.id, produtoMestreId: mestre });
+    else pendentes.push(it);
+  }
+  return { vinculados, pendentes };
+}
+
 /**
  * Outros itens da lista que compartilham o mesmo cprod do item alvo
  * (comparação case-insensitive, ignorando o próprio item).

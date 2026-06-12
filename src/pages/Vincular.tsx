@@ -20,6 +20,8 @@ import {
   normalizeCprod,
   construirMapaDescricao,
   aplicarAutoVinculoPorDescricao,
+  construirMapaCodigo,
+  aplicarAutoVinculoPorCodigo,
 } from "@/lib/autoLink";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -165,6 +167,38 @@ export default function Vincular() {
     }
   };
 
+  /** Vincula em massa pendentes cujo cProd/descrição casa com um código do catálogo. */
+  const autoVincularCodigo = async () => {
+    const mapa = construirMapaCodigo(mestres.map((m) => ({ id: m.id, codigo: m.codigo })));
+    const { vinculados } = aplicarAutoVinculoPorCodigo(
+      pendentes.map((p) => ({ id: p.id, cprod: p.cprod, descricao: p.descricao })),
+      mapa,
+    );
+    if (vinculados.length === 0) {
+      toast.info("Nenhum pendente casou por código do catálogo.");
+      return;
+    }
+    setAutoBusy(true);
+    try {
+      const porId = new Map(pendentes.map((p) => [p.id, p]));
+      const memo = new Set<string>();
+      for (const v of vinculados) {
+        await vincularItem(v.id, v.produtoMestreId);
+        const it = porId.get(v.id);
+        if (it && it.cprod && !memo.has(normalizeCprod(it.cprod))) {
+          memo.add(normalizeCprod(it.cprod));
+          await upsertVinculo(it.cprod, v.produtoMestreId);
+        }
+      }
+      invalidate();
+      toast.success(`${vinculados.length} item(ns) vinculados por código.`);
+    } catch (err) {
+      toast.error(`Falha no auto-vínculo: ${errMsg(err)}`);
+    } finally {
+      setAutoBusy(false);
+    }
+  };
+
   const handleCriarMestre = async (
     item: ItemRow,
     nome: string,
@@ -204,14 +238,24 @@ export default function Vincular() {
               {!loading ? ` (${busca ? `${pendentesFiltrados.length}/` : ""}${pendentes.length})` : ""}
             </CardTitle>
             {pendentes.length > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={autoBusy || mestres.length === 0}
-                onClick={() => void autoVincularDescricao()}
-              >
-                {autoBusy ? "Vinculando…" : "Auto-vincular idênticos"}
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={autoBusy || mestres.length === 0}
+                  onClick={() => void autoVincularCodigo()}
+                >
+                  {autoBusy ? "Vinculando…" : "Auto-vincular por código"}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={autoBusy || mestres.length === 0}
+                  onClick={() => void autoVincularDescricao()}
+                >
+                  {autoBusy ? "Vinculando…" : "Auto-vincular idênticos"}
+                </Button>
+              </div>
             )}
           </div>
           {pendentes.length > 0 && (
