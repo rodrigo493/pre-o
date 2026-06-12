@@ -12,3 +12,6 @@ produtos/
 
 # NF-e XML de entrada (dados internos)
 xml entrada Rodrigo/
+
+# TS build cache
+*.tsbuildinfo
