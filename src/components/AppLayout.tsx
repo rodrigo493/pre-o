@@ -12,6 +12,7 @@ const links = [
   { to: "/vincular", label: "Vincular itens" },
   { to: "/vinculos", label: "Vínculos (fator)" },
   { to: "/montado", label: "Produto montado" },
+  { to: "/calculador", label: "Calculador" },
   { to: "/config", label: "Configurações" },
 ];
 

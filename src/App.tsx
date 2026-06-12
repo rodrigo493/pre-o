@@ -14,6 +14,7 @@ import ImportarCatalogo from "@/pages/ImportarCatalogo";
 import Vincular from "@/pages/Vincular";
 import Vinculos from "@/pages/Vinculos";
 import ProdutoMontado from "@/pages/ProdutoMontado";
+import Calculador from "@/pages/Calculador";
 import Configuracoes from "@/pages/Configuracoes";
 
 const queryClient = new QueryClient();
@@ -35,6 +36,7 @@ export default function App() {
                 <Route path="/notas" element={<Notas />} />
                 <Route path="/notas/:id" element={<NotaDetalhe />} />
                 <Route path="/montado" element={<ProdutoMontado />} />
+                <Route path="/calculador" element={<Calculador />} />
                 <Route path="/config" element={<Configuracoes />} />
               </Route>
             </Route>

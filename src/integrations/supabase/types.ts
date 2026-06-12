@@ -69,6 +69,33 @@ export interface Database {
           },
         ];
       };
+      config_chapas: {
+        Row: { espessura: number; chapa_codigo: string; area_mm2: number; peso_kg: number };
+        Insert: { espessura: number; chapa_codigo: string; area_mm2: number; peso_kg: number };
+        Update: Partial<Database["public"]["Tables"]["config_chapas"]["Insert"]>;
+        Relationships: [];
+      };
+      pecas_laser: {
+        Row: { produto_mestre_id: string; espessura: number; largura_mm: number; comprimento_mm: number; tempo_corte_seg: number; updated_at: string };
+        Insert: { produto_mestre_id: string; espessura: number; largura_mm: number; comprimento_mm: number; tempo_corte_seg?: number; updated_at?: string };
+        Update: Partial<Database["public"]["Tables"]["pecas_laser"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "pecas_laser_produto_mestre_id_fkey";
+            columns: ["produto_mestre_id"];
+            isOneToOne: true;
+            referencedRelation: "produtos_mestre";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "pecas_laser_espessura_fkey";
+            columns: ["espessura"];
+            isOneToOne: false;
+            referencedRelation: "config_chapas";
+            referencedColumns: ["espessura"];
+          },
+        ];
+      };
       config_markup: {
         Row: { id: number; vendas: number; marketing: number; custo_operacional: number; ipi: number; icms: number; pis: number; cofins: number; csll: number; ir: number; lucro: number; desgaste_maquinas: number; frete: number; valor_hora_laser: number };
         Insert: Partial<Database["public"]["Tables"]["config_markup"]["Row"]> & { id?: number };

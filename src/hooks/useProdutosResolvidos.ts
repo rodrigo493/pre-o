@@ -12,6 +12,9 @@ import {
   type ResolvedPrice,
 } from "@/lib/priceResolution";
 import { criarCustoDe, custoExtras, type ProdutoCusto } from "@/lib/custoComposto";
+import { listConfigChapas } from "@/repositories/configChapasRepo";
+import { listPecasLaser } from "@/repositories/pecasLaserRepo";
+import { calcularCustoPecaLaser } from "@/lib/laserCost";
 
 export interface LinhaProduto extends ProdutoMestre {
   resolvido: ResolvedPrice;
@@ -30,8 +33,9 @@ export function useProdutosResolvidos() {
   return useQuery({
     queryKey: ["produtos-resolvidos"],
     queryFn: async (): Promise<LinhaProduto[]> => {
-      const [mestres, itens, cfg, componentes, vinculos] = await Promise.all([
+      const [mestres, itens, cfg, componentes, vinculos, chapas, pecasLaser] = await Promise.all([
         listProdutosMestre(), listItensComData(), getConfig(), listComponentes(), listVinculos(),
+        listConfigChapas(), listPecasLaser(),
       ]);
       const hoje = new Date();
       // Fator de conversão por cProd (vínculo): custo_real = custo / fator.
@@ -69,6 +73,30 @@ export function useProdutosResolvidos() {
           custoCompradoPorId.set(m.id, r.custoBase);
         } else {
           custoNotaPorId.set(m.id, itensM.length > 0 ? resolveCustoNota(base(m), itensM, hoje).custo : null);
+        }
+      }
+
+      // Peças LA (chapa laser): custo = material da chapa (R$/kg das notas × peso × % da peça)
+      // + corte laser. Sobrescreve o custo do comprado; a recursão de montados já lê este mapa.
+      if (pecasLaser.length > 0) {
+        const idPorCodigo = new Map<string, string>();
+        for (const m of mestres) if (m.codigo) idPorCodigo.set(m.codigo.trim().toUpperCase(), m.id);
+        const chapaPorEspessura = new Map(chapas.map((c) => [Number(c.espessura), c]));
+        for (const peca of pecasLaser) {
+          const chapa = chapaPorEspessura.get(Number(peca.espessura));
+          if (!chapa) continue;
+          const chapaId = idPorCodigo.get(chapa.chapa_codigo.trim().toUpperCase());
+          const rkgChapa = (chapaId ? custoCompradoPorId.get(chapaId) : null) ?? 0;
+          const r = calcularCustoPecaLaser({
+            larguraMm: Number(peca.largura_mm),
+            comprimentoMm: Number(peca.comprimento_mm),
+            tempoSeg: Number(peca.tempo_corte_seg),
+            areaChapaMm2: Number(chapa.area_mm2),
+            pesoChapaKg: Number(chapa.peso_kg),
+            rkgChapa,
+            valorHoraLaser: cfg.valorHoraLaser,
+          });
+          custoCompradoPorId.set(peca.produto_mestre_id, r.custoUnitario);
         }
       }
 
