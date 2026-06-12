@@ -67,7 +67,7 @@ export default function Calculador() {
   }, [linhas, busca]);
 
   const chapa = chapas.find((c) => Number(c.espessura) === espessura) ?? null;
-  const rkgChapa = useMemo(() => {
+  const valorChapaUnit = useMemo(() => {
     if (!chapa) return 0;
     const cod = chapa.chapa_codigo.trim().toUpperCase();
     const prod = linhas.find((l) => (l.codigo ?? "").trim().toUpperCase() === cod);
@@ -81,11 +81,10 @@ export default function Calculador() {
       comprimentoMm: parseNum(comprimento),
       tempoSeg: parseNum(tempo),
       areaChapaMm2: Number(chapa.area_mm2),
-      pesoChapaKg: Number(chapa.peso_kg),
-      rkgChapa,
+      valorChapaUnit,
       valorHoraLaser: configQuery.data?.valorHoraLaser ?? 0,
     });
-  }, [chapa, largura, comprimento, tempo, rkgChapa, configQuery.data]);
+  }, [chapa, largura, comprimento, tempo, valorChapaUnit, configQuery.data]);
 
   const salvar = async () => {
     if (!pecaId) { toast.error("Selecione a peça."); return; }
@@ -192,16 +191,15 @@ export default function Calculador() {
           <CardContent className="flex flex-col gap-2 text-sm">
             <Row label="Área da peça" value={`${calc.areaPecaMm2.toLocaleString("pt-BR")} mm²`} />
             <Row label="% da chapa usada" value={`${calc.percentual.toFixed(3)} %`} />
-            <Row label={`R$/kg da chapa (${chapa.chapa_codigo})`} value={rkgChapa > 0 ? formatCurrency(rkgChapa) : "sem custo na nota"} />
-            <Row label="Valor da chapa" value={formatCurrency(calc.valorChapa)} />
+            <Row label={`Valor da chapa por unidade (${chapa.chapa_codigo})`} value={valorChapaUnit > 0 ? formatCurrency(valorChapaUnit) : "sem custo na nota"} />
             <Row label="Custo do material" value={formatCurrency(calc.custoMaterial)} />
             <Row label="Custo do laser" value={formatCurrency(calc.custoLaser)} />
             <div className="mt-1 flex justify-between border-t pt-2 text-base font-semibold">
               <span>Custo unitário</span>
               <span className="font-mono-num">{formatCurrency(calc.custoUnitario)}</span>
             </div>
-            {rkgChapa === 0 && (
-              <p className="text-xs text-amber-600">Chapa sem custo nas notas dos últimos 3 meses — importe a nota da chapa.</p>
+            {valorChapaUnit === 0 && (
+              <p className="text-xs text-amber-600">Chapa sem custo: vincule a chapa numa nota (com fator × peso) para o valor por unidade aparecer.</p>
             )}
             {(configQuery.data?.valorHoraLaser ?? 0) === 0 && (
               <p className="text-xs text-amber-600">Valor da hora do laser está 0 — configure em Configurações.</p>

@@ -91,14 +91,13 @@ export function useProdutosResolvidos() {
           const chapa = chapaPorEspessura.get(Number(peca.espessura));
           if (!chapa) continue;
           const chapaId = idPorCodigo.get(chapa.chapa_codigo.trim().toUpperCase());
-          const rkgChapa = (chapaId ? custoCompradoPorId.get(chapaId) : null) ?? 0;
+          const valorChapaUnit = (chapaId ? custoCompradoPorId.get(chapaId) : null) ?? 0;
           const r = calcularCustoPecaLaser({
             larguraMm: Number(peca.largura_mm),
             comprimentoMm: Number(peca.comprimento_mm),
             tempoSeg: Number(peca.tempo_corte_seg),
             areaChapaMm2: Number(chapa.area_mm2),
-            pesoChapaKg: Number(chapa.peso_kg),
-            rkgChapa,
+            valorChapaUnit,
             valorHoraLaser: cfg.valorHoraLaser,
           });
           custoCompradoPorId.set(peca.produto_mestre_id, r.custoUnitario);

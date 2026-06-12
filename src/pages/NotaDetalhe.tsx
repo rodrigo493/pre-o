@@ -13,13 +13,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import VincularRow from "@/components/VincularRow";
+import VincularRow, { type ConversaoOp } from "@/components/VincularRow";
 import { getNotaById } from "@/repositories/notasRepo";
 import {
   listItensPorNota,
   vincularItensPorCprod,
 } from "@/repositories/itensNotaRepo";
-import { listProdutosMestre, createProdutoMestre } from "@/repositories/produtosMestreRepo";
+import { listProdutosMestre, createProdutoMestre, updateProdutoMestre } from "@/repositories/produtosMestreRepo";
 import { upsertVinculo } from "@/repositories/vinculosRepo";
 import { formatCurrency } from "@/lib/pricing";
 import type { Database } from "@/integrations/supabase/types";
@@ -61,11 +61,19 @@ export default function NotaDetalhe() {
     queryClient.invalidateQueries({ queryKey: ["pendentes"] });
   };
 
-  const vincular = async (item: ItemRow, mestreId: string, fator: number | null) => {
+  const vincular = async (
+    item: ItemRow,
+    mestreId: string,
+    fator: number | null,
+    op: ConversaoOp,
+  ) => {
     setBusyId(item.id);
     try {
       const n = await vincularItensPorCprod(item.cprod, mestreId);
-      await upsertVinculo(item.cprod, mestreId, fator);
+      await upsertVinculo(item.cprod, mestreId, null);
+      if (fator != null) {
+        await updateProdutoMestre(mestreId, { fator_conversao: fator, conversao_op: op });
+      }
       setTrocando((prev) => {
         const next = new Set(prev);
         next.delete(item.id);
@@ -84,11 +92,16 @@ export default function NotaDetalhe() {
     }
   };
 
-  const criarEVincular = async (item: ItemRow, nome: string, fator: number | null) => {
+  const criarEVincular = async (
+    item: ItemRow,
+    nome: string,
+    fator: number | null,
+    op: ConversaoOp,
+  ) => {
     setBusyId(item.id);
     try {
       const mestre = await createProdutoMestre({ nome, tipo: "comprado" });
-      await vincular(item, mestre.id, fator);
+      await vincular(item, mestre.id, fator, op);
     } catch (err) {
       toast.error(`Falha ao criar mestre: ${errMsg(err)}`);
       setBusyId(null);
@@ -177,8 +190,8 @@ export default function NotaDetalhe() {
                               mestres={mestres}
                               outrosMesmoCprod={0}
                               busy={busyId === item.id}
-                              onVincularExistente={(it, mestreId, _lote, fator) => void vincular(it, mestreId, fator)}
-                              onCriarMestre={(it, nome, _lote, fator) => void criarEVincular(it, nome, fator)}
+                              onVincularExistente={(it, mestreId, _lote, fator, op) => void vincular(it, mestreId, fator, op)}
+                              onCriarMestre={(it, nome, _lote, fator, op) => void criarEVincular(it, nome, fator, op)}
                             />
                           );
                         }

@@ -11,9 +11,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import VincularRow from "@/components/VincularRow";
+import VincularRow, { type ConversaoOp } from "@/components/VincularRow";
 import { listItensPendentes, vincularItem } from "@/repositories/itensNotaRepo";
-import { listProdutosMestre, createProdutoMestre } from "@/repositories/produtosMestreRepo";
+import { listProdutosMestre, createProdutoMestre, updateProdutoMestre } from "@/repositories/produtosMestreRepo";
 import { upsertVinculo } from "@/repositories/vinculosRepo";
 import {
   pendentesComMesmoCprod,
@@ -104,6 +104,7 @@ export default function Vincular() {
     mestreId: string,
     lote: boolean,
     fator: number | null,
+    op: ConversaoOp,
   ) => {
     setBusyId(item.id);
     try {
@@ -114,8 +115,12 @@ export default function Vincular() {
       for (const alvo of alvos) {
         await vincularItem(alvo.id, mestreId);
       }
-      // Memoriza o cprod (e o fator de conversão) uma única vez.
-      await upsertVinculo(item.cprod, mestreId, fator);
+      // Memoriza o cprod (sem fator). A conversão (fator + ÷/×) é propriedade do
+      // PRODUTO — vale para todas as notas dele, de qualquer fornecedor.
+      await upsertVinculo(item.cprod, mestreId, null);
+      if (fator != null) {
+        await updateProdutoMestre(mestreId, { fator_conversao: fator, conversao_op: op });
+      }
 
       invalidate();
       const extra = alvos.length - 1;
@@ -136,8 +141,9 @@ export default function Vincular() {
     mestreId: string,
     lote: boolean,
     fator: number | null,
+    op: ConversaoOp,
   ) => {
-    void linkToMestre(item, mestreId, lote, fator);
+    void linkToMestre(item, mestreId, lote, fator, op);
   };
 
   /** Vincula em massa todos os pendentes com descrição IDÊNTICA a um produto oficial. */
@@ -238,11 +244,12 @@ export default function Vincular() {
     nome: string,
     lote: boolean,
     fator: number | null,
+    op: ConversaoOp,
   ) => {
     setBusyId(item.id);
     try {
       const mestre = await createProdutoMestre({ nome, tipo: "comprado" });
-      await linkToMestre(item, mestre.id, lote, fator);
+      await linkToMestre(item, mestre.id, lote, fator, op);
     } catch (err) {
       toast.error(`Falha ao criar mestre: ${errMsg(err)}`);
     } finally {
