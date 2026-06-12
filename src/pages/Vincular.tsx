@@ -23,6 +23,8 @@ import {
   construirMapaCodigo,
   aplicarAutoVinculoPorCodigo,
 } from "@/lib/autoLink";
+import { parseVinculoLista } from "@/lib/vinculoBulk";
+import { vincularItensPorCprod } from "@/repositories/itensNotaRepo";
 import type { Database } from "@/integrations/supabase/types";
 
 type ItemRow = Database["public"]["Tables"]["itens_nota"]["Row"];
@@ -37,6 +39,9 @@ export default function Vincular() {
   const [autoBusy, setAutoBusy] = useState(false);
   const [busca, setBusca] = useState("");
   const [fornecedor, setFornecedor] = useState("");
+  const [mostrarBulk, setMostrarBulk] = useState(false);
+  const [listaTexto, setListaTexto] = useState("");
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const pendentesQuery = useQuery({
     queryKey: ["pendentes"],
@@ -199,6 +204,35 @@ export default function Vincular() {
     }
   };
 
+  /** Vínculo em massa: cola uma lista (cProd → código do catálogo) e liga tudo. */
+  const aplicarVinculoEmMassa = async () => {
+    const mapa = construirMapaCodigo(mestres.map((m) => ({ id: m.id, codigo: m.codigo })));
+    const { pares, invalidas } = parseVinculoLista(listaTexto, mapa);
+    if (pares.length === 0) {
+      toast.info(`Nenhum par válido na lista. ${invalidas.length} linha(s) sem código do catálogo.`);
+      return;
+    }
+    setBulkBusy(true);
+    try {
+      let itensTotal = 0;
+      for (const par of pares) {
+        const n = await vincularItensPorCprod(par.cprod, par.produtoId);
+        await upsertVinculo(par.cprod, par.produtoId);
+        itensTotal += n;
+      }
+      invalidate();
+      toast.success(
+        `${pares.length} vínculo(s) aplicado(s), ${itensTotal} item(ns) vinculado(s)` +
+          (invalidas.length ? `, ${invalidas.length} linha(s) ignorada(s).` : "."),
+      );
+      setListaTexto("");
+    } catch (err) {
+      toast.error(`Falha no vínculo em massa: ${errMsg(err)}`);
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
   const handleCriarMestre = async (
     item: ItemRow,
     nome: string,
@@ -229,6 +263,45 @@ export default function Vincular() {
           próximas notas.
         </p>
       </div>
+
+      <Card className="rounded-2xl shadow-sm">
+        <CardHeader className="gap-2">
+          <div className="flex flex-row items-center justify-between gap-4">
+            <CardTitle className="text-base font-semibold">Vínculo em massa (colar lista)</CardTitle>
+            <Button variant="ghost" size="sm" onClick={() => setMostrarBulk((v) => !v)}>
+              {mostrarBulk ? "Ocultar" : "Abrir"}
+            </Button>
+          </div>
+          {mostrarBulk && (
+            <p className="text-xs text-muted-foreground">
+              Cole uma lista <strong>cProd → código do catálogo</strong> (uma por linha, separados por
+              TAB/ponto-e-vírgula). Pode colar direto a tabela do Nomus: ele acha a coluna do código.
+              Cada linha vincula todos os itens daquele cProd em <strong>todas as notas</strong>.
+            </p>
+          )}
+        </CardHeader>
+        {mostrarBulk && (
+          <CardContent className="flex flex-col gap-3">
+            <textarea
+              value={listaTexto}
+              onChange={(e) => setListaTexto(e.target.value)}
+              placeholder={"1218120030-W\tCH.LISA.1200X3000X3,00MM\n1448150030-W\tCH.LISA.1500X3000X4,75MM"}
+              rows={6}
+              className="w-full rounded-md border border-input bg-transparent p-3 font-mono text-xs"
+              disabled={bulkBusy}
+            />
+            <div>
+              <Button
+                size="sm"
+                disabled={bulkBusy || mestres.length === 0 || listaTexto.trim() === ""}
+                onClick={() => void aplicarVinculoEmMassa()}
+              >
+                {bulkBusy ? "Aplicando…" : "Aplicar vínculos da lista"}
+              </Button>
+            </div>
+          </CardContent>
+        )}
+      </Card>
 
       <Card className="rounded-2xl shadow-sm">
         <CardHeader className="gap-3">
