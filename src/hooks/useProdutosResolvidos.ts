@@ -15,6 +15,7 @@ import { criarCustoDe, custoExtras, type ProdutoCusto } from "@/lib/custoCompost
 import { listConfigChapas } from "@/repositories/configChapasRepo";
 import { listPecasLaser } from "@/repositories/pecasLaserRepo";
 import { calcularCustoPecaLaser } from "@/lib/laserCost";
+import { calculateSellingPrice } from "@/lib/pricing";
 
 export interface LinhaProduto extends ProdutoMestre {
   resolvido: ResolvedPrice;
@@ -81,8 +82,10 @@ export function useProdutosResolvidos() {
         }
       }
 
-      // Peças LA (chapa laser): custo = material da chapa (R$/kg das notas × peso × % da peça)
-      // + corte laser. Sobrescreve o custo do comprado; a recursão de montados já lê este mapa.
+      // Peças LA (chapa laser): custo = material da chapa (valor da chapa por unidade × % da peça)
+      // + corte laser. Sobrescreve o custo do comprado (a recursão de montados lê este mapa) E
+      // alimenta o custo próprio da peça (para aparecer em Produtos).
+      const custoLaserPorId = new Map<string, number>();
       if (pecasLaser.length > 0) {
         const idPorCodigo = new Map<string, string>();
         for (const m of mestres) if (m.codigo) idPorCodigo.set(m.codigo.trim().toUpperCase(), m.id);
@@ -101,6 +104,7 @@ export function useProdutosResolvidos() {
             valorHoraLaser: cfg.valorHoraLaser,
           });
           custoCompradoPorId.set(peca.produto_mestre_id, r.custoUnitario);
+          custoLaserPorId.set(peca.produto_mestre_id, r.custoUnitario);
         }
       }
 
@@ -132,6 +136,32 @@ export function useProdutosResolvidos() {
 
       return mestres.map((m) => {
         const produto = base(m);
+
+        // Peça LA com receita de laser: custo = valor calculado; preço = markup sobre ele.
+        const custoLaser = custoLaserPorId.get(m.id);
+        if (m.tipo !== "montado" && custoLaser != null) {
+          const preco = custoLaser > 0 ? calculateSellingPrice(custoLaser, cfg, 0).precoComIPI : null;
+          return {
+            ...produto,
+            maisVendido: m.mais_vendido ?? false,
+            // Peça LA precificada está conectada (via a chapa) → conta como vinculada.
+            temVinculo: custoLaser > 0 || (porMestre.get(m.id)?.length ?? 0) > 0,
+            custoMaoDeObra: 0,
+            custoCorteLaser: 0,
+            maoDeObraPendente: false,
+            custoNotaProprio: null,
+            resolvido: {
+              precoVenda: preco,
+              custoBase: custoLaser,
+              margemPercent: preco && preco > 0 ? ((preco - custoLaser) / preco) * 100 : null,
+              status: custoLaser > 0 ? "ok" : "sem_custo_recente",
+              origem: null,
+              numNotasPeriodo: 0,
+              conversaoPendente: false,
+            },
+          };
+        }
+
         let custoMaoDeObra = 0;
         let custoCorteLaser = 0;
         let maoDeObraPendente = false;
