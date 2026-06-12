@@ -143,6 +143,12 @@ export default function EditarMontadoDialog({
     return calculateSellingPrice(custoComExtras, configQuery.data, 0).precoComIPI;
   }, [configQuery.data, custoComExtras]);
 
+  const codigoParaId = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const l of linhas) if (l.codigo) m.set(l.codigo.trim().toUpperCase(), l.id);
+    return m;
+  }, [linhas]);
+
   if (!produto) return null;
 
   const invalidate = () => {
@@ -183,12 +189,6 @@ export default function EditarMontadoDialog({
       toast.error(`Falha ao remover: ${errMsg(err)}`);
     }
   };
-
-  const codigoParaId = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const l of linhas) if (l.codigo) m.set(l.codigo.trim().toUpperCase(), l.id);
-    return m;
-  }, [linhas]);
 
   const importarComposicao = async (file: File) => {
     setImportando(true);
