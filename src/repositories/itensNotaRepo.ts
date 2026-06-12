@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
+import { fetchAllRows } from "@/repositories/fetchAll";
 type ItemInsert = Database["public"]["Tables"]["itens_nota"]["Insert"];
 type ItemRow = Database["public"]["Tables"]["itens_nota"]["Row"];
 
@@ -17,12 +18,14 @@ export async function insertItens(itens: ItemInsert[]): Promise<ItemRow[]> {
 }
 /** Itens vinculados a um mestre, com a data de emissão da nota (join). */
 export async function listItensComData(): Promise<Array<ItemRow & { data_emissao: string; nota_numero: string | null }>> {
-  const { data, error } = await supabase
-    .from("itens_nota")
-    .select("*, notas!inner(data_emissao, numero)")
-    .not("produto_mestre_id", "is", null);
-  if (error) throw error;
-  return (data ?? []).map((r: any) => ({ ...r, data_emissao: r.notas.data_emissao, nota_numero: r.notas.numero }));
+  const data = await fetchAllRows<any>((from, to) =>
+    supabase
+      .from("itens_nota")
+      .select("*, notas!inner(data_emissao, numero)")
+      .not("produto_mestre_id", "is", null)
+      .range(from, to),
+  );
+  return data.map((r: any) => ({ ...r, data_emissao: r.notas.data_emissao, nota_numero: r.notas.numero }));
 }
 export type ItemPendente = ItemRow & {
   fornecedor: string | null;
@@ -30,12 +33,14 @@ export type ItemPendente = ItemRow & {
   data_emissao: string;
 };
 export async function listItensPendentes(): Promise<ItemPendente[]> {
-  const { data, error } = await supabase
-    .from("itens_nota")
-    .select("*, notas!inner(fornecedor, numero, data_emissao)")
-    .is("produto_mestre_id", null);
-  if (error) throw error;
-  return (data ?? []).map((r: any) => ({
+  const data = await fetchAllRows<any>((from, to) =>
+    supabase
+      .from("itens_nota")
+      .select("*, notas!inner(fornecedor, numero, data_emissao)")
+      .is("produto_mestre_id", null)
+      .range(from, to),
+  );
+  return data.map((r: any) => ({
     ...r,
     fornecedor: r.notas?.fornecedor ?? null,
     nota_numero: r.notas?.numero ?? null,

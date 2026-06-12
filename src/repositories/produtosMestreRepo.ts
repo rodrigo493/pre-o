@@ -1,14 +1,15 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { ehUsinado } from "@/lib/composicaoClassify";
+import { fetchAllRows } from "@/repositories/fetchAll";
 
 type Row = Database["public"]["Tables"]["produtos_mestre"]["Row"];
 type Insert = Database["public"]["Tables"]["produtos_mestre"]["Insert"];
 
 export async function listProdutosMestre(): Promise<Row[]> {
-  const { data, error } = await supabase.from("produtos_mestre").select("*").order("nome");
-  if (error) throw error;
-  return data ?? [];
+  return fetchAllRows<Row>((from, to) =>
+    supabase.from("produtos_mestre").select("*").order("nome").range(from, to),
+  );
 }
 export async function createProdutoMestre(input: Insert): Promise<Row> {
   const { data, error } = await supabase.from("produtos_mestre").insert(input).select().single();
@@ -43,15 +44,32 @@ function dbErr(error: { message?: string; details?: string; hint?: string; code?
  * fator_conversao nem preço manual. Processa em lotes.
  */
 export async function upsertCatalogByCodigo(produtos: CatalogUpsert[]): Promise<number> {
-  // Mapa codigo → id dos já existentes.
-  const { data: existentes, error: selErr } = await supabase
-    .from("produtos_mestre")
-    .select("id, codigo")
-    .not("codigo", "is", null);
-  if (selErr) throw dbErr(selErr);
+  // Mapa codigo(normalizado) → id de TODOS os existentes. O select do Supabase traz
+  // no máximo 1000 linhas por vez; sem paginar, códigos além de 1000 ficam de fora e
+  // seriam reinseridos → 23505 na constraint única de codigo. Normaliza (trim+upper)
+  // para casar diferenças de caixa/espaço.
   const idPorCodigo = new Map<string, string>();
-  for (const r of existentes ?? []) {
-    if (r.codigo) idPorCodigo.set(r.codigo, r.id);
+  const PAGINA = 1000;
+  for (let from = 0; ; from += PAGINA) {
+    const { data, error: selErr } = await supabase
+      .from("produtos_mestre")
+      .select("id, codigo")
+      .not("codigo", "is", null)
+      .range(from, from + PAGINA - 1);
+    if (selErr) throw dbErr(selErr);
+    for (const r of data ?? []) {
+      if (r.codigo) idPorCodigo.set(r.codigo.trim().toUpperCase(), r.id);
+    }
+    if (!data || data.length < PAGINA) break;
+  }
+
+  // Dedupe da entrada por código normalizado: a mesma chave duas vezes no mesmo
+  // batch faria o PostgREST mandar duas linhas com o mesmo código (→ 23505 no insert
+  // ou "affect row a second time" no upsert). Mantém a última ocorrência.
+  const porChave = new Map<string, CatalogUpsert>();
+  for (const p of produtos) {
+    const chave = p.codigo.trim().toUpperCase();
+    if (chave) porChave.set(chave, p);
   }
 
   // Separa em lotes HOMOGÊNEOS: novos (sem id → insert) e existentes (com id →
@@ -59,10 +77,10 @@ export async function upsertCatalogByCodigo(produtos: CatalogUpsert[]): Promise<
   // e viola o not-null (23502).
   const paraInserir: Insert[] = [];
   const paraAtualizar: Insert[] = [];
-  for (const p of produtos) {
-    const id = idPorCodigo.get(p.codigo);
+  for (const [chave, p] of porChave) {
+    const id = idPorCodigo.get(chave);
     const base: Insert = {
-      codigo: p.codigo,
+      codigo: p.codigo.trim(),
       nome: p.nome,
       unidade: p.unidade,
       unidade_secundaria: p.unidade_secundaria,

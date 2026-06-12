@@ -143,9 +143,9 @@ export default function Calculador() {
                     {resultados.map((l) => (
                       <li key={l.id}>
                         <button type="button" onClick={() => { setPecaId(l.id); setBusca(""); }}
-                          className="flex w-full items-center justify-between gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-accent">
-                          <span className="font-medium">{l.nome}</span>
-                          <span className="font-mono-num text-[11px] text-muted-foreground">{l.codigo ?? "—"}</span>
+                          className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-accent">
+                          <span className="shrink-0 font-mono text-xs text-muted-foreground">{l.codigo ?? "—"}</span>
+                          <span className="truncate font-medium">{l.nome}</span>
                         </button>
                       </li>
                     ))}

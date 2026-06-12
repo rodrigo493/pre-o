@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
+import { fetchAllRows } from "@/repositories/fetchAll";
 
 type Row = Database["public"]["Tables"]["componentes_montado"]["Row"];
 
@@ -10,9 +11,9 @@ function dbErr(error: { message?: string; details?: string; hint?: string; code?
 
 /** Todos os componentes de montados (para o cálculo global de preços). */
 export async function listComponentes(): Promise<Row[]> {
-  const { data, error } = await supabase.from("componentes_montado").select("*");
-  if (error) throw dbErr(error);
-  return data ?? [];
+  return fetchAllRows<Row>((from, to) =>
+    supabase.from("componentes_montado").select("*").range(from, to),
+  );
 }
 
 /** Componentes de um montado específico. */
