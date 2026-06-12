@@ -1,0 +1,20 @@
+version: "3.8"
+services:
+  precos:
+    image: nginx:alpine
+    volumes:
+      - /opt/precos/dist:/usr/share/nginx/html:ro
+      - /opt/precos/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - Rodrigo
+    deploy:
+      replicas: 1
+      labels:
+        - traefik.enable=true
+        - traefik.http.routers.precos.entrypoints=websecure
+        - "traefik.http.routers.precos.rule=Host(`precos.liveuni.com.br`)"
+        - traefik.http.routers.precos.tls.certresolver=letsencryptresolver
+        - traefik.http.services.precos.loadbalancer.server.port=80
+networks:
+  Rodrigo:
+    external: true

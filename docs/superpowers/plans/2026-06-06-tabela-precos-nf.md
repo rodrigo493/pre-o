@@ -19,6 +19,23 @@
 
 ---
 
+## Alterações pós-design (durante a execução)
+
+Decisões/correções que divergiram do design original e já estão implementadas:
+
+1. **Frete REMOVIDO.** O "preço de venda" passou a ser **base + IPI** (`precoComIPI`), sem frete. O campo de frete saiu de Configurações e da lógica; `resolvePrice` não recebe mais `frete`. A coluna `config_markup.frete` permanece inerte no banco (sem uso, não requer migração). `pricing.ts` segue intacto (portado).
+2. **`PriceStatus` ganhou `"sem_preco_manual"`** (montado sem preço manual) — distinto de `"sem_custo_recente"` (comprado sem custo recente). `PriceBadge` trata os 4 status exaustivamente.
+3. **Janela dos 3 meses timezone-safe:** `itensNaJanela` normaliza os dois lados com `startOfDay` (corrige borda em servidor UTC).
+4. **Tipos Supabase exigem `Relationships`** em cada tabela (senão postgrest-js degrada tudo para `never`).
+5. **Deploy com remontagem forçada:** `deploy.sh` faz staging + swap + `docker service update --force` (fazer `rm -rf` na pasta bind-mounted de um container rodando quebra o mount → 403).
+6. **Bugs corrigidos no review final:** toast de erro movido para `useEffect` (evita loop), `busyId` em `finally`, remoção de invalidação morta `["itens"]`.
+
+**NO AR:** `https://precos.liveuni.com.br` (Supabase projeto `idttiidpqsxvpfcfjefx`).
+
+**Follow-ups conhecidos (não bloqueantes):** `xlsx@0.18.5` tem CVE sem fix (uso só de escrita — baixo risco); `react-router-dom` 6.30.1→6.30.4 (patch de XSS, aplicar via protocolo de deps); bundle `index.js` ~297kB gzip (code-split/manualChunks); adicionar CSP no nginx; `parsers.ts` perto do limite de 800 linhas (split futuro).
+
+---
+
 ## File Structure
 
 ```
@@ -623,11 +640,12 @@ Expected: FAIL — `Cannot find module '@/lib/priceResolution'`.
 - [ ] **Step 3: Implementar `priceResolution.ts`**
 
 ```ts
-import { subMonths, parseISO } from "date-fns";
+import { subMonths, parseISO, startOfDay } from "date-fns";
 import { calculateSellingPrice, type PricingPercentages } from "@/lib/pricing";
 
 export type ProdutoTipo = "comprado" | "montado";
-export type PriceStatus = "ok" | "travado" | "sem_custo_recente";
+// "sem_preco_manual" = montado sem preço manual definido (distinto de comprado sem custo recente)
+export type PriceStatus = "ok" | "travado" | "sem_custo_recente" | "sem_preco_manual";
 
 export interface ItemNota {
   id: string;
@@ -666,10 +684,12 @@ function margem(preco: number | null, custo: number | null): number | null {
   return ((preco - custo) / preco) * 100;
 }
 
-/** Itens dentro da janela móvel dos últimos 3 meses (limite inclusivo). */
+/** Itens dentro da janela móvel dos últimos 3 meses (limite inclusivo).
+ *  Normaliza os dois lados para start-of-day → timezone-safe (importante em
+ *  servidor UTC no Docker/VPS; senão a borda de 3 meses vira por horas). */
 function itensNaJanela(itens: ItemNota[], hoje: Date): ItemNota[] {
-  const limite = subMonths(hoje, 3);
-  return itens.filter((it) => parseISO(it.dataEmissao) >= limite);
+  const limite = startOfDay(subMonths(startOfDay(hoje), 3));
+  return itens.filter((it) => startOfDay(parseISO(it.dataEmissao)) >= limite);
 }
 
 export function resolvePrice(
@@ -702,13 +722,13 @@ export function resolvePrice(
     };
   }
 
-  // 2. Montado sem override: preço manual é obrigatório; sem ele → sem_custo_recente
+  // 2. Montado sem override: preço manual é obrigatório; sem ele → sem_preco_manual
   if (produto.tipo === "montado") {
     return {
       precoVenda: null,
       custoBase: produto.custoManual ?? null,
       margemPercent: null,
-      status: "sem_custo_recente",
+      status: "sem_preco_manual",
       origem: null,
       numNotasPeriodo: 0,
     };
@@ -1039,6 +1059,13 @@ git commit -m "feat: schema supabase (tabelas + RLS) para tabela de precos"
 Copiar `cost-to-love/src/integrations/supabase/client.ts` verbatim (usa `VITE_SUPABASE_URL` e `VITE_SUPABASE_PUBLISHABLE_KEY`, `persistSession`, `localStorage`).
 
 - [ ] **Step 2: `types.ts` (Database escrito à mão a partir da migration)**
+
+> **IMPORTANTE (descoberto na Task 2.3):** cada tabela DEVE ter também um campo
+> `Relationships: []` (ou com as FKs reais nas tabelas com join). Sem ele, o
+> `@supabase/postgrest-js` 2.100.1 não casa o schema e degrada Row/Insert/Update
+> para `never`, quebrando TODA query. `itens_nota` e `vinculos_cprod` precisam das
+> FKs declaradas (itens_nota.nota_id→notas, itens_nota.produto_mestre_id→produtos_mestre,
+> vinculos_cprod.produto_mestre_id→produtos_mestre) para o join `notas!inner(...)` tipar.
 
 ```ts
 export interface Database {
@@ -1496,7 +1523,7 @@ export function useProdutosResolvidos() {
 
 - [ ] **Step 2: `PriceBadge.tsx`**
 
-Mapeia `status`: `travado` → badge "preço travado"; `sem_custo_recente` → badge âmbar "sem custo recente"; `ok` → nada.
+Mapeia `status`: `travado` → badge "preço travado"; `sem_custo_recente` → badge âmbar "sem custo recente"; `sem_preco_manual` → badge âmbar "preço manual pendente" (montado sem preço); `ok` → nada. O `switch`/map deve ser exaustivo sobre `PriceStatus`.
 
 - [ ] **Step 3: `Produtos.tsx`**
 
