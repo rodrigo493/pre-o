@@ -62,6 +62,8 @@ export default function EditarMontadoDialog({
   const [codigo, setCodigo] = useState("");
   const [categoria, setCategoria] = useState("");
   const [preco, setPreco] = useState("");
+  const [somaNota, setSomaNota] = useState(false);
+  const [tempoCorte, setTempoCorte] = useState("");
   const [busy, setBusy] = useState(false);
   const [importando, setImportando] = useState(false);
   const [query, setQuery] = useState("");
@@ -80,6 +82,8 @@ export default function EditarMontadoDialog({
     setCodigo(produto?.codigo ?? "");
     setCategoria(produto?.categoria ?? "");
     setPreco(produto?.preco_manual != null ? String(produto.preco_manual) : "");
+    setSomaNota(produto?.soma_nota ?? false);
+    setTempoCorte(produto?.tempo_corte_min != null ? String(produto.tempo_corte_min) : "");
     setQuery("");
   }, [produto]);
 
@@ -120,10 +124,24 @@ export default function EditarMontadoDialog({
     [componentes, custoPorId],
   );
 
+  const linhaAtual = useMemo(
+    () => linhas.find((l) => l.id === produto?.id) ?? null,
+    [linhas, produto],
+  );
+  const custoNotaProprio = linhaAtual?.custoNotaProprio ?? null;
+  const maoDeObra = somaNota ? custoNotaProprio ?? 0 : 0;
+  const maoDeObraPendente = somaNota && custoNotaProprio == null;
+  const tempoNum = parseNumber(tempoCorte);
+  const corteLaser =
+    tempoNum != null && !Number.isNaN(tempoNum) && tempoNum > 0 && configQuery.data
+      ? (tempoNum / 60) * configQuery.data.valorHoraLaser
+      : 0;
+  const custoComExtras = custoTotal + maoDeObra + corteLaser;
+
   const precoCalculado = useMemo(() => {
-    if (!configQuery.data || custoTotal <= 0) return null;
-    return calculateSellingPrice(custoTotal, configQuery.data, 0).precoComIPI;
-  }, [configQuery.data, custoTotal]);
+    if (!configQuery.data || custoComExtras <= 0) return null;
+    return calculateSellingPrice(custoComExtras, configQuery.data, 0).precoComIPI;
+  }, [configQuery.data, custoComExtras]);
 
   if (!produto) return null;
 
@@ -229,6 +247,11 @@ export default function EditarMontadoDialog({
       toast.error("Preço manual inválido.");
       return;
     }
+    const tempoSalvar = parseNumber(tempoCorte);
+    if (tempoSalvar != null && (Number.isNaN(tempoSalvar) || tempoSalvar < 0)) {
+      toast.error("Tempo de corte inválido.");
+      return;
+    }
     setBusy(true);
     try {
       await updateProdutoMestre(produto.id, {
@@ -236,6 +259,8 @@ export default function EditarMontadoDialog({
         codigo: codigo.trim() === "" ? null : codigo.trim(),
         categoria: categoria.trim() === "" ? null : categoria.trim(),
         preco_manual: precoNum, // null = usa o preço calculado pela composição
+        soma_nota: somaNota,
+        tempo_corte_min: tempoSalvar,
       });
       invalidate();
       toast.success("Produto montado salvo.");
@@ -400,8 +425,31 @@ export default function EditarMontadoDialog({
 
           <div className="flex flex-col items-end gap-1 rounded-lg bg-muted/40 p-3">
             <div className="flex w-full justify-between text-sm">
-              <span className="text-muted-foreground">Custo total dos componentes</span>
-              <span className="font-mono-num font-medium">{formatCurrency(custoTotal)}</span>
+              <span className="text-muted-foreground">Componentes</span>
+              <span className="font-mono-num">{formatCurrency(custoTotal)}</span>
+            </div>
+            {somaNota && (
+              <div className="flex w-full justify-between text-sm">
+                <span className="text-muted-foreground">
+                  Mão de obra (nota)
+                  {maoDeObraPendente && (
+                    <span className="ml-2 text-[11px] text-amber-600">
+                      sem nota deste código nos últimos 3 meses
+                    </span>
+                  )}
+                </span>
+                <span className="font-mono-num">{formatCurrency(maoDeObra)}</span>
+              </div>
+            )}
+            {corteLaser > 0 && (
+              <div className="flex w-full justify-between text-sm">
+                <span className="text-muted-foreground">Corte laser</span>
+                <span className="font-mono-num">{formatCurrency(corteLaser)}</span>
+              </div>
+            )}
+            <div className="flex w-full justify-between border-t pt-1 text-sm">
+              <span className="text-muted-foreground">Custo total</span>
+              <span className="font-mono-num font-medium">{formatCurrency(custoComExtras)}</span>
             </div>
             <div className="flex w-full justify-between text-sm">
               <span className="text-muted-foreground">Preço de venda (markup)</span>
@@ -409,6 +457,42 @@ export default function EditarMontadoDialog({
                 {precoCalculado != null ? formatCurrency(precoCalculado) : "—"}
               </span>
             </div>
+          </div>
+        </div>
+
+        {/* Serviço (US / corte laser) */}
+        <div className="mt-2 flex flex-col gap-3 border-t pt-4">
+          <p className="text-sm font-medium">Serviço (peça fabricada)</p>
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 accent-primary"
+              checked={somaNota}
+              onChange={(e) => setSomaNota(e.target.checked)}
+              disabled={busy}
+            />
+            <span>
+              Somar mão de obra da nota
+              <span className="block text-xs text-muted-foreground">
+                Usa o maior preço da nota deste código nos últimos 3 meses (ex.: torneiro dos US).
+              </span>
+            </span>
+          </label>
+          <div className="flex flex-col gap-1.5 sm:max-w-xs">
+            <Label htmlFor="m-tempo-corte">Tempo de corte laser (min)</Label>
+            <Input
+              id="m-tempo-corte"
+              type="number"
+              min="0"
+              step="0.1"
+              value={tempoCorte}
+              onChange={(e) => setTempoCorte(e.target.value)}
+              placeholder="vazio = não corta no laser"
+              disabled={busy}
+            />
+            <span className="text-xs text-muted-foreground">
+              Custo = tempo ÷ 60 × valor da hora do laser (em Configurações).
+            </span>
           </div>
         </div>
 
