@@ -53,6 +53,43 @@ export async function listItensPorNota(notaId: string): Promise<ItemRow[]> {
   if (error) throw error;
   return data ?? [];
 }
+export type ItemComNota = ItemRow & {
+  fornecedor: string | null;
+  nota_numero: string | null;
+  data_emissao: string;
+};
+
+/** Busca itens por descrição ou cProd (em todas as notas), com dados da nota. */
+export async function searchItensComNota(term: string): Promise<ItemComNota[]> {
+  const t = term.trim().replace(/[(),]/g, " ").trim();
+  if (t.length < 2) return [];
+  const like = `%${t}%`;
+  const { data, error } = await supabase
+    .from("itens_nota")
+    .select("*, notas!inner(fornecedor, numero, data_emissao)")
+    .or(`descricao.ilike.${like},cprod.ilike.${like}`)
+    .order("descricao")
+    .limit(500);
+  if (error) throw error;
+  return (data ?? []).map((r: any) => ({
+    ...r,
+    fornecedor: r.notas?.fornecedor ?? null,
+    nota_numero: r.notas?.numero ?? null,
+    data_emissao: r.notas?.data_emissao,
+  }));
+}
+
+/** Itens de várias notas de uma vez (para visualização em lote). */
+export async function listItensPorNotas(notaIds: string[]): Promise<ItemRow[]> {
+  if (notaIds.length === 0) return [];
+  const { data, error } = await supabase
+    .from("itens_nota")
+    .select("*")
+    .in("nota_id", notaIds)
+    .order("descricao");
+  if (error) throw error;
+  return data ?? [];
+}
 export async function vincularItem(id: string, produtoMestreId: string): Promise<void> {
   const { error } = await supabase.from("itens_nota").update({ produto_mestre_id: produtoMestreId }).eq("id", id);
   if (error) throw error;
