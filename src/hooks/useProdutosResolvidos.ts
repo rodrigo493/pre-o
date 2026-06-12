@@ -33,9 +33,14 @@ export function useProdutosResolvidos() {
   return useQuery({
     queryKey: ["produtos-resolvidos"],
     queryFn: async (): Promise<LinhaProduto[]> => {
-      const [mestres, itens, cfg, componentes, vinculos, chapas, pecasLaser] = await Promise.all([
+      const [mestres, itens, cfg, componentes, vinculos] = await Promise.all([
         listProdutosMestre(), listItensComData(), getConfig(), listComponentes(), listVinculos(),
-        listConfigChapas(), listPecasLaser(),
+      ]);
+      // Tolerância pré-migration 0011: se as tabelas ainda não existem, degrada para vazio
+      // (não quebra Produtos/montado, que também usam este hook).
+      const [chapas, pecasLaser] = await Promise.all([
+        listConfigChapas().catch(() => []),
+        listPecasLaser().catch(() => []),
       ]);
       const hoje = new Date();
       // Fator de conversão por cProd (vínculo): custo_real = custo / fator.
