@@ -15,8 +15,9 @@ import { criarCustoDe, custoExtras, type ProdutoCusto } from "@/lib/custoCompost
 import { listConfigChapas } from "@/repositories/configChapasRepo";
 import { listPecasLaser } from "@/repositories/pecasLaserRepo";
 import { calcularCustoPecaLaser } from "@/lib/laserCost";
-import { listConfigBitolas, listPecasUsinado } from "@/repositories/bitolasRepo";
+import { listConfigBitolas, listPecasUsinado, listPecasTubo } from "@/repositories/bitolasRepo";
 import { calcularCustoPecaUsinada } from "@/lib/usinadoCost";
+import { calcularCustoPecaTubo } from "@/lib/tuboCost";
 import { calculateSellingPrice } from "@/lib/pricing";
 
 export interface LinhaProduto extends ProdutoMestre {
@@ -41,11 +42,12 @@ export function useProdutosResolvidos() {
       ]);
       // Tolerância pré-migration 0011: se as tabelas ainda não existem, degrada para vazio
       // (não quebra Produtos/montado, que também usam este hook).
-      const [chapas, pecasLaser, bitolas, pecasUsinado] = await Promise.all([
+      const [chapas, pecasLaser, bitolas, pecasUsinado, pecasTubo] = await Promise.all([
         listConfigChapas().catch(() => []),
         listPecasLaser().catch(() => []),
         listConfigBitolas().catch(() => []),
         listPecasUsinado().catch(() => []),
+        listPecasTubo().catch(() => []),
       ]);
       const hoje = new Date();
       // Fator de conversão por cProd (vínculo): custo_real = custo / fator.
@@ -148,6 +150,36 @@ export function useProdutosResolvidos() {
               ? {
                   valorBarra: plast.produto_mestre_id ? custoCompradoPorId.get(plast.produto_mestre_id) ?? 0 : 0,
                   comprimentoBarraMm: Number(plast.comprimento_barra_mm),
+                }
+              : null,
+          });
+          custoCompradoPorId.set(peca.produto_mestre_id, r.custoUnitario);
+          custoLaserPorId.set(peca.produto_mestre_id, r.custoUnitario);
+        }
+      }
+
+      // Peças de TUBO: material da barra (comprimento/barra × R$/kg × peso) + corte a laser.
+      if (pecasTubo.length > 0) {
+        const mestrePorId = new Map(mestres.map((m) => [m.id, m]));
+        const bitolaPorId = new Map(bitolas.map((b) => [b.id, b]));
+        const rkgDe = (produtoId: string | null): number => {
+          if (!produtoId) return 0;
+          const base = custoCompradoPorId.get(produtoId) ?? 0;
+          const m = mestrePorId.get(produtoId);
+          const fator = m?.fator_conversao != null ? Number(m.fator_conversao) : null;
+          return m?.conversao_op === "multiplicar" && fator && fator > 0 ? base / fator : base;
+        };
+        for (const peca of pecasTubo) {
+          const bit = peca.bitola_id ? bitolaPorId.get(peca.bitola_id) : null;
+          const r = calcularCustoPecaTubo({
+            comprimentoMm: Number(peca.comprimento_mm),
+            tempoSeg: Number(peca.tempo_corte_seg),
+            valorHoraLaser: cfg.valorHoraLaser,
+            tubo: bit
+              ? {
+                  rkg: rkgDe(bit.produto_mestre_id),
+                  pesoBarraKg: Number(bit.peso_barra_kg ?? 0),
+                  comprimentoBarraMm: Number(bit.comprimento_barra_mm),
                 }
               : null,
           });

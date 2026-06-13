@@ -1,6 +1,7 @@
 import { useState } from "react";
 import CalculadorLaser from "@/pages/CalculadorLaser";
 import CalculadorUsinado from "@/pages/CalculadorUsinado";
+import CalculadorTubo from "@/pages/CalculadorTubo";
 
 type Aba = "laser" | "tubo" | "pintado" | "usinado";
 
@@ -37,7 +38,7 @@ export default function Calculador() {
 
       {aba === "laser" && <CalculadorLaser />}
       {aba === "usinado" && <CalculadorUsinado />}
-      {aba === "tubo" && <EmBreve titulo="Tubo" />}
+      {aba === "tubo" && <CalculadorTubo />}
       {aba === "pintado" && <EmBreve titulo="Montados pintados" />}
     </div>
   );

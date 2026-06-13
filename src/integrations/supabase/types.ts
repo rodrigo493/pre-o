@@ -97,9 +97,15 @@ export interface Database {
         ];
       };
       config_bitolas: {
-        Row: { id: string; tipo: "trefilado" | "plastico"; nome: string; produto_mestre_id: string | null; comprimento_barra_mm: number; peso_barra_kg: number | null };
-        Insert: { id?: string; tipo: "trefilado" | "plastico"; nome: string; produto_mestre_id?: string | null; comprimento_barra_mm: number; peso_barra_kg?: number | null };
+        Row: { id: string; tipo: "trefilado" | "plastico" | "tubo"; nome: string; produto_mestre_id: string | null; comprimento_barra_mm: number; peso_barra_kg: number | null };
+        Insert: { id?: string; tipo: "trefilado" | "plastico" | "tubo"; nome: string; produto_mestre_id?: string | null; comprimento_barra_mm: number; peso_barra_kg?: number | null };
         Update: Partial<Database["public"]["Tables"]["config_bitolas"]["Insert"]>;
+        Relationships: [];
+      };
+      pecas_tubo: {
+        Row: { produto_mestre_id: string; bitola_id: string | null; comprimento_mm: number; tempo_corte_seg: number; updated_at: string };
+        Insert: { produto_mestre_id: string; bitola_id?: string | null; comprimento_mm?: number; tempo_corte_seg?: number; updated_at?: string };
+        Update: Partial<Database["public"]["Tables"]["pecas_tubo"]["Insert"]>;
         Relationships: [];
       };
       pecas_usinado: {

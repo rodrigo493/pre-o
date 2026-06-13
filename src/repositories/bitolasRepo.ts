@@ -54,3 +54,29 @@ export async function upsertPecaUsinado(spec: UsinadoInsert): Promise<void> {
     .upsert({ ...spec, updated_at: new Date().toISOString() }, { onConflict: "produto_mestre_id" });
   if (error) throw dbErr(error);
 }
+
+export type PecaTubo = Database["public"]["Tables"]["pecas_tubo"]["Row"];
+type TuboInsert = Database["public"]["Tables"]["pecas_tubo"]["Insert"];
+
+export async function listPecasTubo(): Promise<PecaTubo[]> {
+  const { data, error } = await supabase.from("pecas_tubo").select("*");
+  if (error) throw dbErr(error);
+  return data ?? [];
+}
+
+export async function getPecaTubo(produtoId: string): Promise<PecaTubo | null> {
+  const { data, error } = await supabase
+    .from("pecas_tubo")
+    .select("*")
+    .eq("produto_mestre_id", produtoId)
+    .maybeSingle();
+  if (error) throw dbErr(error);
+  return data ?? null;
+}
+
+export async function upsertPecaTubo(spec: TuboInsert): Promise<void> {
+  const { error } = await supabase
+    .from("pecas_tubo")
+    .upsert({ ...spec, updated_at: new Date().toISOString() }, { onConflict: "produto_mestre_id" });
+  if (error) throw dbErr(error);
+}
