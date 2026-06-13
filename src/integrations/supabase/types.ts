@@ -96,6 +96,18 @@ export interface Database {
           },
         ];
       };
+      config_bitolas: {
+        Row: { id: string; tipo: "trefilado" | "plastico"; nome: string; produto_mestre_id: string | null; comprimento_barra_mm: number; peso_barra_kg: number | null };
+        Insert: { id?: string; tipo: "trefilado" | "plastico"; nome: string; produto_mestre_id?: string | null; comprimento_barra_mm: number; peso_barra_kg?: number | null };
+        Update: Partial<Database["public"]["Tables"]["config_bitolas"]["Insert"]>;
+        Relationships: [];
+      };
+      pecas_usinado: {
+        Row: { produto_mestre_id: string; bitola_trefilado_id: string | null; bitola_plastico_id: string | null; comprimento_mm: number; mao_de_obra: number; updated_at: string };
+        Insert: { produto_mestre_id: string; bitola_trefilado_id?: string | null; bitola_plastico_id?: string | null; comprimento_mm?: number; mao_de_obra?: number; updated_at?: string };
+        Update: Partial<Database["public"]["Tables"]["pecas_usinado"]["Insert"]>;
+        Relationships: [];
+      };
       config_markup: {
         Row: { id: number; vendas: number; marketing: number; custo_operacional: number; ipi: number; icms: number; pis: number; cofins: number; csll: number; ir: number; lucro: number; desgaste_maquinas: number; frete: number; valor_hora_laser: number };
         Insert: Partial<Database["public"]["Tables"]["config_markup"]["Row"]> & { id?: number };
