@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { FileDown, FileSpreadsheet, Star, Tag } from "lucide-react";
+import { FileDown, FileSpreadsheet, Plus, Star, Tag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/table";
 import PriceBadge from "@/components/PriceBadge";
 import EditarPrecoDialog from "@/components/EditarPrecoDialog";
+import NovoProdutoDialog from "@/components/NovoProdutoDialog";
 import { useProdutosResolvidos, type LinhaProduto } from "@/hooks/useProdutosResolvidos";
 import { updateProdutoMestre } from "@/repositories/produtosMestreRepo";
 import { formatMargem, formatMoeda, formatOrigem } from "@/lib/produtoFormat";
@@ -33,6 +34,7 @@ export default function Produtos() {
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [editando, setEditando] = useState<LinhaProduto | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [novoOpen, setNovoOpen] = useState(false);
 
   const linhas = produtosQuery.data ?? [];
 
@@ -110,6 +112,10 @@ export default function Produtos() {
           </div>
         </div>
         <div className="flex gap-2">
+          <Button className="rounded-lg" onClick={() => setNovoOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Novo produto
+          </Button>
           <Button
             variant="outline"
             className="rounded-lg"
@@ -276,6 +282,7 @@ export default function Produtos() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
       />
+      <NovoProdutoDialog open={novoOpen} onOpenChange={setNovoOpen} />
     </div>
   );
 }
