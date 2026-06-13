@@ -80,7 +80,8 @@ export default function Calculador() {
   }, [linhas, busca]);
 
   const chapa = chapas.find((c) => Number(c.espessura) === espessura) ?? null;
-  const rkgChapa = useMemo(() => {
+  // O custo da chapa já vem POR UNIDADE (fator × peso no vínculo) → usa direto.
+  const valorChapaUnit = useMemo(() => {
     if (!chapa) return 0;
     const prod = chapa.produto_mestre_id
       ? linhas.find((l) => l.id === chapa.produto_mestre_id)
@@ -89,8 +90,6 @@ export default function Calculador() {
         );
     return prod?.resolvido.custoBase ?? 0;
   }, [chapa, linhas]);
-  // Chapa é comprada em R$/kg → valor de 1 chapa = R$/kg × peso.
-  const valorChapaUnit = rkgChapa * (chapa ? Number(chapa.peso_kg) : 0);
 
   const calc = useMemo(() => {
     if (!chapa) return null;
@@ -209,18 +208,17 @@ export default function Calculador() {
           <CardContent className="flex flex-col gap-2 text-sm">
             <Row label="Área da peça" value={`${calc.areaPecaMm2.toLocaleString("pt-BR")} mm²`} />
             <Row label="% da chapa usada" value={`${calc.percentual.toFixed(3)} %`} />
-            <Row label={`R$/kg da chapa (${chapa.chapa_codigo})`} value={rkgChapa > 0 ? formatCurrency(rkgChapa) : "sem custo"} />
-            <Row label={`Valor da chapa por unidade (peso ${Number(chapa.peso_kg)} kg)`} value={valorChapaUnit > 0 ? formatCurrency(valorChapaUnit) : "sem custo"} />
+            <Row label={`Valor da chapa por unidade (${chapa.chapa_codigo})`} value={valorChapaUnit > 0 ? formatCurrency(valorChapaUnit) : "sem custo"} />
             <Row label="Custo do material" value={formatCurrency(calc.custoMaterial)} />
             <Row label="Custo do laser" value={formatCurrency(calc.custoLaser)} />
             <div className="mt-1 flex justify-between border-t pt-2 text-base font-semibold">
               <span>Custo unitário</span>
               <span className="font-mono-num">{formatCurrency(calc.custoUnitario)}</span>
             </div>
-            {rkgChapa === 0 && (
+            {valorChapaUnit === 0 && (
               <p className="text-xs text-amber-600">
-                Chapa sem custo. Configure qual produto é a chapa dessa espessura em "Configurar chapas"
-                (abaixo) e garanta que esse produto tem nota nos últimos 3 meses (em R$/kg).
+                Chapa sem custo. Em "Configurar chapas" (abaixo), aponte essa espessura para o produto
+                da chapa que tenha custo, vinculado numa nota com fator × peso (valor por unidade).
               </p>
             )}
             {(configQuery.data?.valorHoraLaser ?? 0) === 0 && (
@@ -258,7 +256,7 @@ export default function Calculador() {
               const atual = c.produto_mestre_id
                 ? linhas.find((l) => l.id === c.produto_mestre_id)
                 : linhas.find((l) => (l.codigo ?? "").trim().toUpperCase() === c.chapa_codigo.trim().toUpperCase());
-              const rkg = atual?.resolvido.custoBase ?? null;
+              const valUn = atual?.resolvido.custoBase ?? null;
               const q = normalize((configBuscas[String(esp)] ?? "").trim());
               const res = q
                 ? linhas.filter((l) => normalize(`${l.codigo ?? ""} ${l.nome}`).includes(q)).slice(0, 6)
@@ -269,7 +267,7 @@ export default function Calculador() {
                     <span className="font-medium">{String(esp).replace(".", ",")} mm</span>
                     <span className="text-xs text-muted-foreground">
                       {atual
-                        ? `${atual.codigo ? `${atual.codigo} · ` : ""}${atual.nome} — ${rkg && rkg > 0 ? formatCurrency(rkg) + "/kg" : "sem custo"}`
+                        ? `${atual.codigo ? `${atual.codigo} · ` : ""}${atual.nome} — ${valUn && valUn > 0 ? formatCurrency(valUn) + "/un" : "sem custo"}`
                         : "nenhum produto"}
                     </span>
                   </div>
@@ -292,7 +290,7 @@ export default function Calculador() {
                               <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{l.codigo ?? "—"}</span>
                               <span className="truncate">{l.nome}</span>
                               <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">
-                                {l.resolvido.custoBase ? `${formatCurrency(l.resolvido.custoBase)}/kg` : "—"}
+                                {l.resolvido.custoBase ? `${formatCurrency(l.resolvido.custoBase)}/un` : "—"}
                               </span>
                             </button>
                           </li>
