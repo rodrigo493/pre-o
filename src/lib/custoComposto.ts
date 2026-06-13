@@ -49,6 +49,8 @@ export interface CustoDeParams {
   custoNotaPorId: Map<string, number | null>;
   compPorMontado: Map<string, ComponenteRef[]>;
   valorHoraLaser: number;
+  /** Custo calculado de peças LA (chapa laser). Tem precedência sobre tipo/composição. */
+  custoLaserPorId?: Map<string, number>;
 }
 
 /**
@@ -62,6 +64,12 @@ export function criarCustoDe(p: CustoDeParams): (id: string) => number {
   const custoDe = (id: string): number => {
     const cache = memo.get(id);
     if (cache != null) return cache;
+    // Peça LA (chapa laser): custo calculado tem precedência sobre tipo/composição.
+    const laser = p.custoLaserPorId?.get(id);
+    if (laser != null) {
+      memo.set(id, laser);
+      return laser;
+    }
     const m = p.produtos.get(id);
     if (!m) return 0;
     if (m.tipo !== "montado") {

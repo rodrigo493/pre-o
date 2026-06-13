@@ -132,14 +132,16 @@ export function useProdutosResolvidos() {
         custoNotaPorId,
         compPorMontado,
         valorHoraLaser: cfg.valorHoraLaser,
+        custoLaserPorId,
       });
 
       return mestres.map((m) => {
         const produto = base(m);
 
         // Peça LA com receita de laser: custo = valor calculado; preço = markup sobre ele.
+        // Vale para qualquer tipo (peças LA vêm como "montado" pelo prefixo do código).
         const custoLaser = custoLaserPorId.get(m.id);
-        if (m.tipo !== "montado" && custoLaser != null) {
+        if (custoLaser != null) {
           const preco = custoLaser > 0 ? calculateSellingPrice(custoLaser, cfg, 0).precoComIPI : null;
           return {
             ...produto,
