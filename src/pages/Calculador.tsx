@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useProdutosResolvidos } from "@/hooks/useProdutosResolvidos";
-import { listConfigChapas } from "@/repositories/configChapasRepo";
+import { listConfigChapas, setChapaProduto } from "@/repositories/configChapasRepo";
 import { getPecaLaser, upsertPecaLaser } from "@/repositories/pecasLaserRepo";
 import { getConfig } from "@/repositories/configRepo";
 import { calcularCustoPecaLaser } from "@/lib/laserCost";
@@ -36,9 +36,22 @@ export default function Calculador() {
   const [comprimento, setComprimento] = useState("");
   const [tempo, setTempo] = useState("");
   const [busy, setBusy] = useState(false);
+  const [mostrarConfig, setMostrarConfig] = useState(false);
+  const [configBuscas, setConfigBuscas] = useState<Record<string, string>>({});
 
   const linhas = produtosQuery.data ?? [];
   const chapas = chapasQuery.data ?? [];
+
+  const definirChapa = async (esp: number, produtoId: string | null) => {
+    try {
+      await setChapaProduto(esp, produtoId);
+      setConfigBuscas((prev) => ({ ...prev, [String(esp)]: "" }));
+      queryClient.invalidateQueries({ queryKey: ["config-chapas"] });
+      toast.success("Chapa configurada.");
+    } catch (err) {
+      toast.error(`Falha ao configurar chapa: ${errMsg(err)}`);
+    }
+  };
 
   const peca = linhas.find((l) => l.id === pecaId) ?? null;
 
@@ -67,12 +80,17 @@ export default function Calculador() {
   }, [linhas, busca]);
 
   const chapa = chapas.find((c) => Number(c.espessura) === espessura) ?? null;
-  const valorChapaUnit = useMemo(() => {
+  const rkgChapa = useMemo(() => {
     if (!chapa) return 0;
-    const cod = chapa.chapa_codigo.trim().toUpperCase();
-    const prod = linhas.find((l) => (l.codigo ?? "").trim().toUpperCase() === cod);
+    const prod = chapa.produto_mestre_id
+      ? linhas.find((l) => l.id === chapa.produto_mestre_id)
+      : linhas.find(
+          (l) => (l.codigo ?? "").trim().toUpperCase() === chapa.chapa_codigo.trim().toUpperCase(),
+        );
     return prod?.resolvido.custoBase ?? 0;
   }, [chapa, linhas]);
+  // Chapa é comprada em R$/kg → valor de 1 chapa = R$/kg × peso.
+  const valorChapaUnit = rkgChapa * (chapa ? Number(chapa.peso_kg) : 0);
 
   const calc = useMemo(() => {
     if (!chapa) return null;
@@ -191,15 +209,19 @@ export default function Calculador() {
           <CardContent className="flex flex-col gap-2 text-sm">
             <Row label="Área da peça" value={`${calc.areaPecaMm2.toLocaleString("pt-BR")} mm²`} />
             <Row label="% da chapa usada" value={`${calc.percentual.toFixed(3)} %`} />
-            <Row label={`Valor da chapa por unidade (${chapa.chapa_codigo})`} value={valorChapaUnit > 0 ? formatCurrency(valorChapaUnit) : "sem custo na nota"} />
+            <Row label={`R$/kg da chapa (${chapa.chapa_codigo})`} value={rkgChapa > 0 ? formatCurrency(rkgChapa) : "sem custo"} />
+            <Row label={`Valor da chapa por unidade (peso ${Number(chapa.peso_kg)} kg)`} value={valorChapaUnit > 0 ? formatCurrency(valorChapaUnit) : "sem custo"} />
             <Row label="Custo do material" value={formatCurrency(calc.custoMaterial)} />
             <Row label="Custo do laser" value={formatCurrency(calc.custoLaser)} />
             <div className="mt-1 flex justify-between border-t pt-2 text-base font-semibold">
               <span>Custo unitário</span>
               <span className="font-mono-num">{formatCurrency(calc.custoUnitario)}</span>
             </div>
-            {valorChapaUnit === 0 && (
-              <p className="text-xs text-amber-600">Chapa sem custo: vincule a chapa numa nota (com fator × peso) para o valor por unidade aparecer.</p>
+            {rkgChapa === 0 && (
+              <p className="text-xs text-amber-600">
+                Chapa sem custo. Configure qual produto é a chapa dessa espessura em "Configurar chapas"
+                (abaixo) e garanta que esse produto tem nota nos últimos 3 meses (em R$/kg).
+              </p>
             )}
             {(configQuery.data?.valorHoraLaser ?? 0) === 0 && (
               <p className="text-xs text-amber-600">Valor da hora do laser está 0 — configure em Configurações.</p>
@@ -212,6 +234,87 @@ export default function Calculador() {
           </CardContent>
         </Card>
       )}
+
+      {/* Configurar chapas: qual produto do catálogo é a chapa de cada espessura */}
+      <Card className="rounded-2xl shadow-sm">
+        <CardHeader>
+          <div className="flex items-center justify-between gap-3">
+            <CardTitle className="text-base font-semibold">Configurar chapas</CardTitle>
+            <Button variant="ghost" size="sm" onClick={() => setMostrarConfig((v) => !v)}>
+              {mostrarConfig ? "Ocultar" : "Abrir"}
+            </Button>
+          </div>
+          {mostrarConfig && (
+            <p className="text-xs text-muted-foreground">
+              Aponte cada espessura para o produto do catálogo que tem o custo da chapa (em R$/kg).
+              Use isto quando o produto da chapa não tem o código padrão.
+            </p>
+          )}
+        </CardHeader>
+        {mostrarConfig && (
+          <CardContent className="flex flex-col gap-4">
+            {chapas.map((c) => {
+              const esp = Number(c.espessura);
+              const atual = c.produto_mestre_id
+                ? linhas.find((l) => l.id === c.produto_mestre_id)
+                : linhas.find((l) => (l.codigo ?? "").trim().toUpperCase() === c.chapa_codigo.trim().toUpperCase());
+              const rkg = atual?.resolvido.custoBase ?? null;
+              const q = normalize((configBuscas[String(esp)] ?? "").trim());
+              const res = q
+                ? linhas.filter((l) => normalize(`${l.codigo ?? ""} ${l.nome}`).includes(q)).slice(0, 6)
+                : [];
+              return (
+                <div key={String(esp)} className="flex flex-col gap-1.5 border-b pb-3 last:border-0">
+                  <div className="flex items-center justify-between gap-2 text-sm">
+                    <span className="font-medium">{String(esp).replace(".", ",")} mm</span>
+                    <span className="text-xs text-muted-foreground">
+                      {atual
+                        ? `${atual.codigo ? `${atual.codigo} · ` : ""}${atual.nome} — ${rkg && rkg > 0 ? formatCurrency(rkg) + "/kg" : "sem custo"}`
+                        : "nenhum produto"}
+                    </span>
+                  </div>
+                  <div className="relative">
+                    <Input
+                      value={configBuscas[String(esp)] ?? ""}
+                      onChange={(e) => setConfigBuscas((p) => ({ ...p, [String(esp)]: e.target.value }))}
+                      placeholder="Trocar: buscar produto da chapa (código ou nome)…"
+                      className="h-8 text-xs"
+                    />
+                    {q && res.length > 0 && (
+                      <ul className="absolute z-50 mt-1 max-h-52 w-full overflow-auto rounded-md border bg-white p-1 shadow-lg">
+                        {res.map((l) => (
+                          <li key={l.id}>
+                            <button
+                              type="button"
+                              onClick={() => void definirChapa(esp, l.id)}
+                              className="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-xs hover:bg-accent"
+                            >
+                              <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{l.codigo ?? "—"}</span>
+                              <span className="truncate">{l.nome}</span>
+                              <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">
+                                {l.resolvido.custoBase ? `${formatCurrency(l.resolvido.custoBase)}/kg` : "—"}
+                              </span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                  {c.produto_mestre_id && (
+                    <button
+                      type="button"
+                      onClick={() => void definirChapa(esp, null)}
+                      className="self-start text-[11px] text-muted-foreground underline-offset-2 hover:underline"
+                    >
+                      Voltar para o código padrão ({c.chapa_codigo})
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </CardContent>
+        )}
+      </Card>
     </div>
   );
 }

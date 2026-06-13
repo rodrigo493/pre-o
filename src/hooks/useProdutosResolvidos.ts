@@ -93,8 +93,11 @@ export function useProdutosResolvidos() {
         for (const peca of pecasLaser) {
           const chapa = chapaPorEspessura.get(Number(peca.espessura));
           if (!chapa) continue;
-          const chapaId = idPorCodigo.get(chapa.chapa_codigo.trim().toUpperCase());
-          const valorChapaUnit = (chapaId ? custoCompradoPorId.get(chapaId) : null) ?? 0;
+          // Chapa: produto configurado tem precedência sobre o código (cobre produto sem código).
+          const chapaId = chapa.produto_mestre_id ?? idPorCodigo.get(chapa.chapa_codigo.trim().toUpperCase());
+          const rkgChapa = (chapaId ? custoCompradoPorId.get(chapaId) : null) ?? 0;
+          // Chapa é comprada em R$/kg → valor de 1 chapa = R$/kg × peso.
+          const valorChapaUnit = rkgChapa * Number(chapa.peso_kg);
           const r = calcularCustoPecaLaser({
             larguraMm: Number(peca.largura_mm),
             comprimentoMm: Number(peca.comprimento_mm),

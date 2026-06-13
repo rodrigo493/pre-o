@@ -13,3 +13,12 @@ export async function listConfigChapas(): Promise<ConfigChapa[]> {
   if (error) throw dbErr(error);
   return data ?? [];
 }
+
+/** Aponta a chapa de uma espessura para um produto do catálogo (ou limpa, com null). */
+export async function setChapaProduto(espessura: number, produtoMestreId: string | null): Promise<void> {
+  const { error } = await supabase
+    .from("config_chapas")
+    .update({ produto_mestre_id: produtoMestreId })
+    .eq("espessura", espessura);
+  if (error) throw dbErr(error);
+}

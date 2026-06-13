@@ -70,8 +70,8 @@ export interface Database {
         ];
       };
       config_chapas: {
-        Row: { espessura: number; chapa_codigo: string; area_mm2: number; peso_kg: number };
-        Insert: { espessura: number; chapa_codigo: string; area_mm2: number; peso_kg: number };
+        Row: { espessura: number; chapa_codigo: string; area_mm2: number; peso_kg: number; produto_mestre_id: string | null };
+        Insert: { espessura: number; chapa_codigo: string; area_mm2: number; peso_kg: number; produto_mestre_id?: string | null };
         Update: Partial<Database["public"]["Tables"]["config_chapas"]["Insert"]>;
         Relationships: [];
       };
