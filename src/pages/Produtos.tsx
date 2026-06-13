@@ -35,6 +35,7 @@ export default function Produtos() {
   const [editando, setEditando] = useState<LinhaProduto | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [novoOpen, setNovoOpen] = useState(false);
+  const [editarDados, setEditarDados] = useState<LinhaProduto | null>(null);
 
   const linhas = produtosQuery.data ?? [];
 
@@ -260,13 +261,22 @@ export default function Produtos() {
                         </Button>
                       </TableCell>
                       <TableCell className="text-right no-print">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => abrirEdicao(linha)}
-                        >
-                          Editar
-                        </Button>
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setEditarDados(linha)}
+                          >
+                            Dados
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => abrirEdicao(linha)}
+                          >
+                            Preço
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   );
@@ -283,6 +293,22 @@ export default function Produtos() {
         onOpenChange={setDialogOpen}
       />
       <NovoProdutoDialog open={novoOpen} onOpenChange={setNovoOpen} />
+      <NovoProdutoDialog
+        open={!!editarDados}
+        onOpenChange={(o) => { if (!o) setEditarDados(null); }}
+        editar={
+          editarDados
+            ? {
+                id: editarDados.id,
+                codigo: editarDados.codigo,
+                nome: editarDados.nome,
+                categoria: editarDados.categoria,
+                unidade: editarDados.unidade,
+                tipo: editarDados.tipo,
+              }
+            : null
+        }
+      />
     </div>
   );
 }

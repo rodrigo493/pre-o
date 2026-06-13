@@ -80,16 +80,20 @@ export default function Calculador() {
   }, [linhas, busca]);
 
   const chapa = chapas.find((c) => Number(c.espessura) === espessura) ?? null;
-  // O custo da chapa já vem POR UNIDADE (fator × peso no vínculo) → usa direto.
-  const valorChapaUnit = useMemo(() => {
+  // Recupera o R$/kg da chapa (desfaz um fator × se houver) e multiplica pelo peso da config.
+  // Robusto: funciona com a chapa em R$/kg OU já por unidade (fator × peso).
+  const rkgChapa = useMemo(() => {
     if (!chapa) return 0;
     const prod = chapa.produto_mestre_id
       ? linhas.find((l) => l.id === chapa.produto_mestre_id)
       : linhas.find(
           (l) => (l.codigo ?? "").trim().toUpperCase() === chapa.chapa_codigo.trim().toUpperCase(),
         );
-    return prod?.resolvido.custoBase ?? 0;
+    const base = prod?.resolvido.custoBase ?? 0;
+    const fator = prod?.fatorConversao ?? null;
+    return prod?.conversaoOp === "multiplicar" && fator && fator > 0 ? base / fator : base;
   }, [chapa, linhas]);
+  const valorChapaUnit = rkgChapa * (chapa ? Number(chapa.peso_kg) : 0);
 
   const calc = useMemo(() => {
     if (!chapa) return null;
@@ -208,7 +212,8 @@ export default function Calculador() {
           <CardContent className="flex flex-col gap-2 text-sm">
             <Row label="Área da peça" value={`${calc.areaPecaMm2.toLocaleString("pt-BR")} mm²`} />
             <Row label="% da chapa usada" value={`${calc.percentual.toFixed(3)} %`} />
-            <Row label={`Valor da chapa por unidade (${chapa.chapa_codigo})`} value={valorChapaUnit > 0 ? formatCurrency(valorChapaUnit) : "sem custo"} />
+            <Row label={`R$/kg da chapa (${chapa.chapa_codigo})`} value={rkgChapa > 0 ? formatCurrency(rkgChapa) : "sem custo"} />
+            <Row label={`Valor da chapa por unidade (× ${Number(chapa.peso_kg)} kg)`} value={valorChapaUnit > 0 ? formatCurrency(valorChapaUnit) : "sem custo"} />
             <Row label="Custo do material" value={formatCurrency(calc.custoMaterial)} />
             <Row label="Custo do laser" value={formatCurrency(calc.custoLaser)} />
             <div className="mt-1 flex justify-between border-t pt-2 text-base font-semibold">
@@ -256,7 +261,15 @@ export default function Calculador() {
               const atual = c.produto_mestre_id
                 ? linhas.find((l) => l.id === c.produto_mestre_id)
                 : linhas.find((l) => (l.codigo ?? "").trim().toUpperCase() === c.chapa_codigo.trim().toUpperCase());
-              const valUn = atual?.resolvido.custoBase ?? null;
+              const baseAtual = atual?.resolvido.custoBase ?? null;
+              const fatorAtual = atual?.fatorConversao ?? null;
+              const rkgAtual =
+                baseAtual != null
+                  ? atual?.conversaoOp === "multiplicar" && fatorAtual && fatorAtual > 0
+                    ? baseAtual / fatorAtual
+                    : baseAtual
+                  : null;
+              const valUn = rkgAtual != null ? rkgAtual * Number(c.peso_kg) : null;
               const q = normalize((configBuscas[String(esp)] ?? "").trim());
               const res = q
                 ? linhas.filter((l) => normalize(`${l.codigo ?? ""} ${l.nome}`).includes(q)).slice(0, 6)

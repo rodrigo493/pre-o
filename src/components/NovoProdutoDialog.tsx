@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { createProdutoMestre } from "@/repositories/produtosMestreRepo";
+import { createProdutoMestre, updateProdutoMestre } from "@/repositories/produtosMestreRepo";
 
 function errMsg(err: unknown): string {
   if (err instanceof Error) {
@@ -22,12 +22,23 @@ function errMsg(err: unknown): string {
   return "erro desconhecido";
 }
 
+export interface ProdutoEditavel {
+  id: string;
+  codigo: string | null;
+  nome: string;
+  categoria: string | null;
+  unidade: string | null;
+  tipo: "comprado" | "montado";
+}
+
 interface NovoProdutoDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Quando definido, o diálogo edita esse produto em vez de criar um novo. */
+  editar?: ProdutoEditavel | null;
 }
 
-export default function NovoProdutoDialog({ open, onOpenChange }: NovoProdutoDialogProps) {
+export default function NovoProdutoDialog({ open, onOpenChange, editar }: NovoProdutoDialogProps) {
   const queryClient = useQueryClient();
   const [codigo, setCodigo] = useState("");
   const [nome, setNome] = useState("");
@@ -36,28 +47,38 @@ export default function NovoProdutoDialog({ open, onOpenChange }: NovoProdutoDia
   const [tipo, setTipo] = useState<"comprado" | "montado">("comprado");
   const [busy, setBusy] = useState(false);
 
-  const reset = () => {
-    setCodigo(""); setNome(""); setCategoria(""); setUnidade(""); setTipo("comprado");
-  };
+  const editando = !!editar;
+
+  useEffect(() => {
+    setCodigo(editar?.codigo ?? "");
+    setNome(editar?.nome ?? "");
+    setCategoria(editar?.categoria ?? "");
+    setUnidade(editar?.unidade ?? "");
+    setTipo(editar?.tipo ?? "comprado");
+  }, [editar, open]);
 
   const salvar = async () => {
     if (nome.trim() === "") { toast.error("Informe o nome do produto."); return; }
     setBusy(true);
     try {
-      await createProdutoMestre({
+      const patch = {
         codigo: codigo.trim() === "" ? null : codigo.trim(),
         nome: nome.trim(),
         categoria: categoria.trim() === "" ? null : categoria.trim(),
         unidade: unidade.trim() === "" ? null : unidade.trim().toUpperCase(),
         tipo,
-      });
+      };
+      if (editar) {
+        await updateProdutoMestre(editar.id, patch);
+      } else {
+        await createProdutoMestre(patch);
+      }
       queryClient.invalidateQueries({ queryKey: ["produtos-resolvidos"] });
       queryClient.invalidateQueries({ queryKey: ["produtos-mestre"] });
-      toast.success("Produto criado no catálogo.");
-      reset();
+      toast.success(editar ? "Produto atualizado." : "Produto criado no catálogo.");
       onOpenChange(false);
     } catch (err) {
-      toast.error(`Falha ao criar produto: ${errMsg(err)}`);
+      toast.error(`Falha ao salvar produto: ${errMsg(err)}`);
     } finally {
       setBusy(false);
     }
@@ -67,10 +88,11 @@ export default function NovoProdutoDialog({ open, onOpenChange }: NovoProdutoDia
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Novo produto no catálogo</DialogTitle>
+          <DialogTitle>{editando ? "Editar produto" : "Novo produto no catálogo"}</DialogTitle>
           <DialogDescription>
-            Cadastre um produto/código direto no catálogo, sem importar PDF. Útil para chapas e
-            matérias-primas que faltaram na importação.
+            {editando
+              ? "Edite código, nome, grupo, unidade e tipo do produto."
+              : "Cadastre um produto/código direto no catálogo, sem importar PDF. Útil para chapas e matérias-primas que faltaram na importação."}
           </DialogDescription>
         </DialogHeader>
 

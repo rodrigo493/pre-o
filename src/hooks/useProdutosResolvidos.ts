@@ -88,15 +88,21 @@ export function useProdutosResolvidos() {
       const custoLaserPorId = new Map<string, number>();
       if (pecasLaser.length > 0) {
         const idPorCodigo = new Map<string, string>();
+        const mestrePorId = new Map(mestres.map((m) => [m.id, m]));
         for (const m of mestres) if (m.codigo) idPorCodigo.set(m.codigo.trim().toUpperCase(), m.id);
         const chapaPorEspessura = new Map(chapas.map((c) => [Number(c.espessura), c]));
         for (const peca of pecasLaser) {
           const chapa = chapaPorEspessura.get(Number(peca.espessura));
           if (!chapa) continue;
           // Chapa: produto configurado tem precedência sobre o código (cobre produto sem código).
-          // O custo da chapa já vem POR UNIDADE (fator × peso no vínculo) → usa direto.
           const chapaId = chapa.produto_mestre_id ?? idPorCodigo.get(chapa.chapa_codigo.trim().toUpperCase());
-          const valorChapaUnit = (chapaId ? custoCompradoPorId.get(chapaId) : null) ?? 0;
+          // Recupera o R$/kg (desfaz um fator × se houver) e multiplica pelo peso da config.
+          // Robusto: funciona com a chapa em R$/kg OU já por unidade (fator × peso).
+          const baseChapa = (chapaId ? custoCompradoPorId.get(chapaId) : null) ?? 0;
+          const cm = chapaId ? mestrePorId.get(chapaId) : undefined;
+          const fator = cm?.fator_conversao != null ? Number(cm.fator_conversao) : null;
+          const rkgChapa = cm?.conversao_op === "multiplicar" && fator && fator > 0 ? baseChapa / fator : baseChapa;
+          const valorChapaUnit = rkgChapa * Number(chapa.peso_kg);
           const r = calcularCustoPecaLaser({
             larguraMm: Number(peca.largura_mm),
             comprimentoMm: Number(peca.comprimento_mm),
