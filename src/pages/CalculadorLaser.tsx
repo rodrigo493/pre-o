@@ -76,7 +76,7 @@ export default function CalculadorLaser() {
     if (!q) return [];
     return linhas
       .filter((l) => normalize(`${l.codigo ?? ""} ${l.nome}`).includes(q))
-      .slice(0, 8);
+      .slice(0, 40);
   }, [linhas, busca]);
 
   const chapa = chapas.find((c) => Number(c.espessura) === espessura) ?? null;

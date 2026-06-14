@@ -74,7 +74,7 @@ export default function CalculadorUsinado() {
   const resultados = useMemo(() => {
     const q = normalize(busca.trim());
     if (!q) return [];
-    return linhas.filter((l) => normalize(`${l.codigo ?? ""} ${l.nome}`).includes(q)).slice(0, 8);
+    return linhas.filter((l) => normalize(`${l.codigo ?? ""} ${l.nome}`).includes(q)).slice(0, 40);
   }, [linhas, busca]);
 
   const tref = trefiladas.find((b) => b.id === trefId) ?? null;
