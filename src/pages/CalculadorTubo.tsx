@@ -16,6 +16,7 @@ import {
 } from "@/repositories/bitolasRepo";
 import { listComponentesDoMontado } from "@/repositories/componentesMontadoRepo";
 import { calcularCustoPecaTubo } from "@/lib/tuboCost";
+import { acharProdutoDaBitola } from "@/lib/bitolaMatch";
 import { formatCurrency } from "@/lib/pricing";
 
 function errMsg(err: unknown): string {
@@ -110,13 +111,13 @@ export default function CalculadorTubo() {
       valorHoraLaser: configQuery.data?.valorHoraLaser ?? 0,
       tubo: bitola
         ? {
-            rkg: rkgDe(bitola.produto_mestre_id ? prodPorId.get(bitola.produto_mestre_id) : undefined),
+            rkg: rkgDe((() => { const id = acharProdutoDaBitola(bitola, linhas); return id ? prodPorId.get(id) : undefined; })()),
             pesoBarraKg: Number(bitola.peso_barra_kg ?? 0),
             comprimentoBarraMm: Number(bitola.comprimento_barra_mm),
           }
         : null,
     });
-  }, [comprimento, tempo, bitola, prodPorId, configQuery.data]);
+  }, [comprimento, tempo, bitola, prodPorId, linhas, configQuery.data]);
 
   const salvar = async () => {
     if (!pecaId) { toast.error("Selecione a peça."); return; }
@@ -274,7 +275,8 @@ function ConfigTubos({ tubos, linhas, prodPorId, aberto, onToggle, onChange }: C
       {aberto && (
         <CardContent className="flex flex-col gap-3">
           {tubos.map((b) => {
-            const p = b.produto_mestre_id ? prodPorId.get(b.produto_mestre_id) : null;
+            const pid = acharProdutoDaBitola(b, linhas);
+            const p = pid ? prodPorId.get(pid) : null;
             const rkg = rkgDe(p ?? undefined);
             const q = normalize((buscas[b.id] ?? "").trim());
             const res = q ? linhas.filter((l) => normalize(`${l.codigo ?? ""} ${l.nome}`).includes(q)).slice(0, 6) : [];

@@ -18,6 +18,7 @@ import { calcularCustoPecaLaser } from "@/lib/laserCost";
 import { listConfigBitolas, listPecasUsinado, listPecasTubo } from "@/repositories/bitolasRepo";
 import { calcularCustoPecaUsinada } from "@/lib/usinadoCost";
 import { calcularCustoPecaTubo } from "@/lib/tuboCost";
+import { acharProdutoDaBitola } from "@/lib/bitolaMatch";
 import { calculateSellingPrice } from "@/lib/pricing";
 
 export interface LinhaProduto extends ProdutoMestre {
@@ -136,19 +137,20 @@ export function useProdutosResolvidos() {
         for (const peca of pecasUsinado) {
           const tref = peca.bitola_trefilado_id ? bitolaPorId.get(peca.bitola_trefilado_id) : null;
           const plast = peca.bitola_plastico_id ? bitolaPorId.get(peca.bitola_plastico_id) : null;
+          const plastId = plast ? acharProdutoDaBitola(plast, mestres) : null;
           const r = calcularCustoPecaUsinada({
             comprimentoMm: Number(peca.comprimento_mm),
             maoDeObra: Number(peca.mao_de_obra),
             trefilado: tref
               ? {
-                  rkg: rkgDe(tref.produto_mestre_id),
+                  rkg: rkgDe(acharProdutoDaBitola(tref, mestres)),
                   pesoBarraKg: Number(tref.peso_barra_kg ?? 0),
                   comprimentoBarraMm: Number(tref.comprimento_barra_mm),
                 }
               : null,
             plastico: plast
               ? {
-                  valorBarra: plast.produto_mestre_id ? custoCompradoPorId.get(plast.produto_mestre_id) ?? 0 : 0,
+                  valorBarra: plastId ? custoCompradoPorId.get(plastId) ?? 0 : 0,
                   comprimentoBarraMm: Number(plast.comprimento_barra_mm),
                 }
               : null,
@@ -177,7 +179,7 @@ export function useProdutosResolvidos() {
             valorHoraLaser: cfg.valorHoraLaser,
             tubo: bit
               ? {
-                  rkg: rkgDe(bit.produto_mestre_id),
+                  rkg: rkgDe(acharProdutoDaBitola(bit, mestres)),
                   pesoBarraKg: Number(bit.peso_barra_kg ?? 0),
                   comprimentoBarraMm: Number(bit.comprimento_barra_mm),
                 }

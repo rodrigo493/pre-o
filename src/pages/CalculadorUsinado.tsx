@@ -15,6 +15,7 @@ import {
   upsertPecaUsinado,
 } from "@/repositories/bitolasRepo";
 import { calcularCustoPecaUsinada } from "@/lib/usinadoCost";
+import { acharProdutoDaBitola, type BitolaLike } from "@/lib/bitolaMatch";
 import { formatCurrency } from "@/lib/pricing";
 
 function errMsg(err: unknown): string {
@@ -78,6 +79,11 @@ export default function CalculadorUsinado() {
 
   const tref = trefiladas.find((b) => b.id === trefId) ?? null;
   const plast = plasticas.find((b) => b.id === plastId) ?? null;
+  const prodDaBitola = (b: BitolaLike | null) => {
+    if (!b) return undefined;
+    const id = acharProdutoDaBitola(b, linhas);
+    return id ? prodPorId.get(id) : undefined;
+  };
 
   const calc = useMemo(() => {
     return calcularCustoPecaUsinada({
@@ -85,19 +91,19 @@ export default function CalculadorUsinado() {
       maoDeObra: parseNum(maoDeObra),
       trefilado: tref
         ? {
-            rkg: rkgDe(tref.produto_mestre_id ? prodPorId.get(tref.produto_mestre_id) : undefined),
+            rkg: rkgDe(prodDaBitola(tref)),
             pesoBarraKg: Number(tref.peso_barra_kg ?? 0),
             comprimentoBarraMm: Number(tref.comprimento_barra_mm),
           }
         : null,
       plastico: plast
         ? {
-            valorBarra: plast.produto_mestre_id ? prodPorId.get(plast.produto_mestre_id)?.resolvido.custoBase ?? 0 : 0,
+            valorBarra: prodDaBitola(plast)?.resolvido.custoBase ?? 0,
             comprimentoBarraMm: Number(plast.comprimento_barra_mm),
           }
         : null,
     });
-  }, [comprimento, maoDeObra, tref, plast, prodPorId]);
+  }, [comprimento, maoDeObra, tref, plast, linhas]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const salvar = async () => {
     if (!pecaId) { toast.error("Selecione a peça."); return; }
@@ -374,7 +380,8 @@ function ConfigBitolas({ bitolas, linhas, prodPorId, aberto, onToggle, onChange 
           ) : (
             <div className="flex flex-col gap-2">
               {bitolas.map((b) => {
-                const p = b.produto_mestre_id ? prodPorId.get(b.produto_mestre_id) : null;
+                const pid = acharProdutoDaBitola(b, linhas);
+                const p = pid ? prodPorId.get(pid) : null;
                 const q = normalize((buscasItem[b.id] ?? "").trim());
                 const res = q ? linhas.filter((l) => normalize(`${l.codigo ?? ""} ${l.nome}`).includes(q)).slice(0, 6) : [];
                 return (
