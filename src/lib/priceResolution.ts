@@ -70,6 +70,12 @@ function itensNaJanela(itens: ItemNota[], hoje: Date): ItemNota[] {
   return itens.filter((it) => startOfDay(parseISO(it.dataEmissao)) >= limite);
 }
 
+/** A nota mais recente (qualquer data) — fallback quando não há nota na janela. */
+function itemMaisRecente(itens: ItemNota[]): ItemNota[] {
+  if (itens.length === 0) return [];
+  return [itens.reduce((a, b) => (parseISO(b.dataEmissao) > parseISO(a.dataEmissao) ? b : a))];
+}
+
 export interface CustoNotaResult {
   custo: number | null;
   origem: PriceOrigem | null;
@@ -88,7 +94,9 @@ export function resolveCustoNota(
   hoje: Date,
 ): CustoNotaResult {
   const recentes = itensNaJanela(itens, hoje);
-  const convertidos = recentes.map((it) => {
+  // Fallback: sem nota na janela, usa a nota mais recente (último preço conhecido).
+  const base = recentes.length > 0 ? recentes : itemMaisRecente(itens);
+  const convertidos = base.map((it) => {
     let custo = it.custoUnitario;
     if (it.fatorConversao != null && it.fatorConversao > 0) {
       custo = it.custoUnitario / it.fatorConversao;
@@ -109,7 +117,7 @@ export function resolveCustoNota(
     origem: maior
       ? { notaId: maior.item.notaId, notaNumero: maior.item.notaNumero, dataEmissao: maior.item.dataEmissao }
       : null,
-    numNotas: recentes.length,
+    numNotas: base.length,
   };
 }
 

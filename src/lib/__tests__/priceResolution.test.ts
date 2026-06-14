@@ -38,12 +38,12 @@ describe("resolvePrice — comprado (regra dos 3 meses)", () => {
     expect(r.precoVenda!).toBeGreaterThan(base);
   });
 
-  it("sem item nos últimos 3 meses e sem preço manual → sem_custo_recente", () => {
+  it("sem nota na janela → usa a nota mais recente (fallback)", () => {
     const produto: ProdutoMestre = { id: "p1", nome: "X", tipo: "comprado" };
     const r = resolvePrice(produto, [item(99, "2025-09-01")], cfg, HOJE);
-    expect(r.status).toBe("sem_custo_recente");
-    expect(r.precoVenda).toBeNull();
-    expect(r.numNotasPeriodo).toBe(0);
+    expect(r.status).toBe("ok");
+    expect(r.custoBase).toBe(99);
+    expect(r.precoVenda).not.toBeNull();
   });
 
   it("inclui item exatamente no limite de 8 meses atrás", () => {
@@ -118,15 +118,14 @@ describe("resolvePrice — override manual", () => {
     expect(r.custoBase).toBe(15); // ainda mostra o maior custo p/ margem
   });
 
-  it("override em comprado sem custo recente → travado, custoBase null, margem null", () => {
+  it("override em comprado, sem nota na janela → travado, custoBase usa a nota mais recente (fallback)", () => {
     const produto: ProdutoMestre = { id: "p1", nome: "X", tipo: "comprado", precoManual: 500 };
     const r = resolvePrice(produto, [item(99, "2025-09-01")], cfg, HOJE);
     expect(r.status).toBe("travado");
     expect(r.precoVenda).toBe(500);
-    expect(r.custoBase).toBeNull(); // nenhum item na janela
-    expect(r.margemPercent).toBeNull();
-    expect(r.origem).toBeNull();
-    expect(r.numNotasPeriodo).toBe(0);
+    expect(r.custoBase).toBe(99); // fallback: nota mais recente
+    expect(r.margemPercent).toBeCloseTo(((500 - 99) / 500) * 100, 2);
+    expect(r.numNotasPeriodo).toBe(1);
   });
 });
 
@@ -208,12 +207,11 @@ describe("resolveCustoNota — maior custo da nota do próprio código", () => {
     expect(r.origem?.dataEmissao).toBe("2026-04-10");
   });
 
-  it("sem item na janela → custo null", () => {
+  it("sem item na janela → usa a nota mais recente (fallback)", () => {
     const produto: ProdutoMestre = { id: "p1", nome: "US.V12.088", tipo: "montado" };
     const r = resolveCustoNota(produto, [item(99, "2025-09-01")], HOJE);
-    expect(r.custo).toBeNull();
-    expect(r.origem).toBeNull();
-    expect(r.numNotas).toBe(0);
+    expect(r.custo).toBe(99);
+    expect(r.numNotas).toBe(1);
   });
 
   it("aplica o fator do produto com operação multiplicar (kg → barra)", () => {
