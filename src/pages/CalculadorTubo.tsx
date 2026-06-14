@@ -17,6 +17,7 @@ import {
 import { listComponentesDoMontado } from "@/repositories/componentesMontadoRepo";
 import { calcularCustoPecaTubo } from "@/lib/tuboCost";
 import { acharProdutoDaBitola } from "@/lib/bitolaMatch";
+import { rkgCru } from "@/lib/rkgCru";
 import { formatCurrency } from "@/lib/pricing";
 
 function errMsg(err: unknown): string {
@@ -30,9 +31,7 @@ function normalize(t: string): string {
   return t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 }
 function rkgDe(prod: LinhaProduto | undefined): number {
-  const base = prod?.resolvido.custoBase ?? 0;
-  const fator = prod?.fatorConversao ?? null;
-  return prod?.conversaoOp === "multiplicar" && fator && fator > 0 ? base / fator : base;
+  return rkgCru(prod?.resolvido.custoBase ?? 0, prod?.fatorConversao ?? null, prod?.conversaoOp ?? null);
 }
 /** Dimensão da bitola sem o tipo (ex.: "Quadrado 50x30x2" → "50x30x2"). */
 function dimDaBitola(nome: string): string {

@@ -19,6 +19,7 @@ import { listConfigBitolas, listPecasUsinado, listPecasTubo } from "@/repositori
 import { calcularCustoPecaUsinada } from "@/lib/usinadoCost";
 import { calcularCustoPecaTubo } from "@/lib/tuboCost";
 import { acharProdutoDaBitola } from "@/lib/bitolaMatch";
+import { rkgCru } from "@/lib/rkgCru";
 import { calculateSellingPrice } from "@/lib/pricing";
 
 export interface LinhaProduto extends ProdutoMestre {
@@ -107,8 +108,11 @@ export function useProdutosResolvidos() {
           // Robusto: funciona com a chapa em R$/kg OU já por unidade (fator × peso).
           const baseChapa = (chapaId ? custoCompradoPorId.get(chapaId) : null) ?? 0;
           const cm = chapaId ? mestrePorId.get(chapaId) : undefined;
-          const fator = cm?.fator_conversao != null ? Number(cm.fator_conversao) : null;
-          const rkgChapa = cm?.conversao_op === "multiplicar" && fator && fator > 0 ? baseChapa / fator : baseChapa;
+          const rkgChapa = rkgCru(
+            baseChapa,
+            cm?.fator_conversao != null ? Number(cm.fator_conversao) : null,
+            cm?.conversao_op ?? null,
+          );
           const valorChapaUnit = rkgChapa * Number(chapa.peso_kg);
           const r = calcularCustoPecaLaser({
             larguraMm: Number(peca.largura_mm),
@@ -129,10 +133,12 @@ export function useProdutosResolvidos() {
         const bitolaPorId = new Map(bitolas.map((b) => [b.id, b]));
         const rkgDe = (produtoId: string | null): number => {
           if (!produtoId) return 0;
-          const base = custoCompradoPorId.get(produtoId) ?? 0;
           const m = mestrePorId.get(produtoId);
-          const fator = m?.fator_conversao != null ? Number(m.fator_conversao) : null;
-          return m?.conversao_op === "multiplicar" && fator && fator > 0 ? base / fator : base;
+          return rkgCru(
+            custoCompradoPorId.get(produtoId) ?? 0,
+            m?.fator_conversao != null ? Number(m.fator_conversao) : null,
+            m?.conversao_op ?? null,
+          );
         };
         for (const peca of pecasUsinado) {
           const tref = peca.bitola_trefilado_id ? bitolaPorId.get(peca.bitola_trefilado_id) : null;
@@ -166,10 +172,12 @@ export function useProdutosResolvidos() {
         const bitolaPorId = new Map(bitolas.map((b) => [b.id, b]));
         const rkgDe = (produtoId: string | null): number => {
           if (!produtoId) return 0;
-          const base = custoCompradoPorId.get(produtoId) ?? 0;
           const m = mestrePorId.get(produtoId);
-          const fator = m?.fator_conversao != null ? Number(m.fator_conversao) : null;
-          return m?.conversao_op === "multiplicar" && fator && fator > 0 ? base / fator : base;
+          return rkgCru(
+            custoCompradoPorId.get(produtoId) ?? 0,
+            m?.fator_conversao != null ? Number(m.fator_conversao) : null,
+            m?.conversao_op ?? null,
+          );
         };
         for (const peca of pecasTubo) {
           const bit = peca.bitola_id ? bitolaPorId.get(peca.bitola_id) : null;

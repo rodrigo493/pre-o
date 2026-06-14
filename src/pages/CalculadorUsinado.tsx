@@ -16,6 +16,7 @@ import {
 } from "@/repositories/bitolasRepo";
 import { calcularCustoPecaUsinada } from "@/lib/usinadoCost";
 import { acharProdutoDaBitola, type BitolaLike } from "@/lib/bitolaMatch";
+import { rkgCru } from "@/lib/rkgCru";
 import { formatCurrency } from "@/lib/pricing";
 
 function errMsg(err: unknown): string {
@@ -30,9 +31,7 @@ function normalize(t: string): string {
 }
 /** R$/kg recuperado do produto (desfaz fator × se houver). Para R$/un, é o custoBase. */
 function rkgDe(prod: LinhaProduto | undefined): number {
-  const base = prod?.resolvido.custoBase ?? 0;
-  const fator = prod?.fatorConversao ?? null;
-  return prod?.conversaoOp === "multiplicar" && fator && fator > 0 ? base / fator : base;
+  return rkgCru(prod?.resolvido.custoBase ?? 0, prod?.fatorConversao ?? null, prod?.conversaoOp ?? null);
 }
 
 export default function CalculadorUsinado() {
