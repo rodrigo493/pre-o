@@ -279,7 +279,7 @@ export default function EditarMontadoDialog({
           <DialogTitle>Composição — {produto.nome}</DialogTitle>
           <DialogDescription>
             Monte o produto a partir de produtos Nomus. O custo de cada componente vem
-            automaticamente do maior custo dos últimos 3 meses; o preço sai do markup sobre o total.
+            automaticamente do maior custo dos últimos 8 meses; o preço sai do markup sobre o total.
           </DialogDescription>
         </DialogHeader>
 
@@ -434,7 +434,7 @@ export default function EditarMontadoDialog({
                   Mão de obra (nota)
                   {maoDeObraPendente && (
                     <span className="ml-2 text-[11px] text-amber-600">
-                      sem nota deste código nos últimos 3 meses
+                      sem nota deste código nos últimos 8 meses
                     </span>
                   )}
                 </span>
@@ -474,7 +474,7 @@ export default function EditarMontadoDialog({
             <span>
               Somar mão de obra da nota
               <span className="block text-xs text-muted-foreground">
-                Usa o maior preço da nota deste código nos últimos 3 meses (ex.: torneiro dos US).
+                Usa o maior preço da nota deste código nos últimos 8 meses (ex.: torneiro dos US).
               </span>
             </span>
           </label>

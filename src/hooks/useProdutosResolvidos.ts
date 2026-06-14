@@ -28,7 +28,7 @@ export interface LinhaProduto extends ProdutoMestre {
   /** Decomposição do custo do montado (0 quando não se aplica). */
   custoMaoDeObra: number;
   custoCorteLaser: number;
-  /** soma_nota ligado mas sem nota do código nos últimos 3 meses. */
+  /** soma_nota ligado mas sem nota do código nos últimos 8 meses. */
   maoDeObraPendente: boolean;
   /** Maior custo da nota do PRÓPRIO código (montados; null = sem nota na janela). */
   custoNotaProprio: number | null;

@@ -5,7 +5,7 @@
 
 export interface ExtrasInput {
   somaNota: boolean;
-  /** Maior custo da nota do próprio código na janela de 3 meses (null = sem nota). */
+  /** Maior custo da nota do próprio código na janela de 8 meses (null = sem nota). */
   custoNota: number | null;
   tempoCorteMin: number | null;
   valorHoraLaser: number;

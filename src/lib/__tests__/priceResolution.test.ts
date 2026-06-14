@@ -15,7 +15,7 @@ describe("resolvePrice — comprado (regra dos 3 meses)", () => {
     const itens = [
       item(10, "2026-05-01"), // dentro
       item(15, "2026-04-10"), // dentro, maior
-      item(99, "2026-01-01"), // FORA da janela (ignorar)
+      item(99, "2025-09-01"), // FORA da janela (ignorar)
     ];
     const r = resolvePrice(produto, itens, cfg, HOJE);
     expect(r.status).toBe("ok");
@@ -40,16 +40,16 @@ describe("resolvePrice — comprado (regra dos 3 meses)", () => {
 
   it("sem item nos últimos 3 meses e sem preço manual → sem_custo_recente", () => {
     const produto: ProdutoMestre = { id: "p1", nome: "X", tipo: "comprado" };
-    const r = resolvePrice(produto, [item(99, "2026-01-01")], cfg, HOJE);
+    const r = resolvePrice(produto, [item(99, "2025-09-01")], cfg, HOJE);
     expect(r.status).toBe("sem_custo_recente");
     expect(r.precoVenda).toBeNull();
     expect(r.numNotasPeriodo).toBe(0);
   });
 
-  it("inclui item exatamente no limite de 3 meses atrás", () => {
+  it("inclui item exatamente no limite de 8 meses atrás", () => {
     const produto: ProdutoMestre = { id: "p1", nome: "X", tipo: "comprado" };
-    // 3 meses antes de 2026-06-06 = 2026-03-06
-    const r = resolvePrice(produto, [item(20, "2026-03-06")], cfg, HOJE);
+    // 8 meses antes de 2026-06-06 = 2025-10-06
+    const r = resolvePrice(produto, [item(20, "2025-10-06")], cfg, HOJE);
     expect(r.status).toBe("ok");
     expect(r.custoBase).toBe(20);
   });
@@ -120,7 +120,7 @@ describe("resolvePrice — override manual", () => {
 
   it("override em comprado sem custo recente → travado, custoBase null, margem null", () => {
     const produto: ProdutoMestre = { id: "p1", nome: "X", tipo: "comprado", precoManual: 500 };
-    const r = resolvePrice(produto, [item(99, "2026-01-01")], cfg, HOJE);
+    const r = resolvePrice(produto, [item(99, "2025-09-01")], cfg, HOJE);
     expect(r.status).toBe("travado");
     expect(r.precoVenda).toBe(500);
     expect(r.custoBase).toBeNull(); // nenhum item na janela
@@ -200,7 +200,7 @@ describe("resolveCustoNota — maior custo da nota do próprio código", () => {
     const produto: ProdutoMestre = { id: "p1", nome: "US.V12.088", tipo: "montado" };
     const r = resolveCustoNota(
       produto,
-      [item(10, "2026-05-01"), item(15, "2026-04-10"), item(99, "2026-01-01")],
+      [item(10, "2026-05-01"), item(15, "2026-04-10"), item(99, "2025-09-01")],
       HOJE,
     );
     expect(r.custo).toBe(15);
@@ -210,7 +210,7 @@ describe("resolveCustoNota — maior custo da nota do próprio código", () => {
 
   it("sem item na janela → custo null", () => {
     const produto: ProdutoMestre = { id: "p1", nome: "US.V12.088", tipo: "montado" };
-    const r = resolveCustoNota(produto, [item(99, "2026-01-01")], HOJE);
+    const r = resolveCustoNota(produto, [item(99, "2025-09-01")], HOJE);
     expect(r.custo).toBeNull();
     expect(r.origem).toBeNull();
     expect(r.numNotas).toBe(0);

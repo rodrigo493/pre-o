@@ -107,7 +107,7 @@ export default function Produtos() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Produtos</h1>
             <p className="mt-0.5 text-sm text-muted-foreground">
-              Preços resolvidos a partir do maior custo dos últimos 3 meses (comprados)
+              Preços resolvidos a partir do maior custo dos últimos 8 meses (comprados)
               ou do preço manual (montados / travados).
             </p>
           </div>

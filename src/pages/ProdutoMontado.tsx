@@ -189,7 +189,7 @@ export default function ProdutoMontado() {
                         {p.maoDeObraPendente && (
                           <span
                             className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700"
-                            title="Soma mão de obra da nota, mas não há nota deste código nos últimos 3 meses — a parcela está valendo R$ 0."
+                            title="Soma mão de obra da nota, mas não há nota deste código nos últimos 8 meses — a parcela está valendo R$ 0."
                           >
                             sem nota do serviço
                           </span>

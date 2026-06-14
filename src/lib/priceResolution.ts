@@ -57,13 +57,16 @@ function margem(preco: number | null, custo: number | null): number | null {
   return ((preco - custo) / preco) * 100;
 }
 
+/** Janela móvel (em meses) para o maior custo da nota. */
+export const MESES_JANELA_CUSTO = 8;
+
 /**
- * Itens dentro da janela móvel dos últimos 3 meses (limite inclusivo).
- * Compara por dia (start-of-day) para que a regra "exatamente 3 meses atrás"
+ * Itens dentro da janela móvel dos últimos N meses (limite inclusivo).
+ * Compara por dia (start-of-day) para que a regra "exatamente N meses atrás"
  * seja inclusiva independente da hora/fuso de `hoje`.
  */
 function itensNaJanela(itens: ItemNota[], hoje: Date): ItemNota[] {
-  const limite = startOfDay(subMonths(startOfDay(hoje), 3));
+  const limite = startOfDay(subMonths(startOfDay(hoje), MESES_JANELA_CUSTO));
   return itens.filter((it) => startOfDay(parseISO(it.dataEmissao)) >= limite);
 }
 
@@ -74,7 +77,7 @@ export interface CustoNotaResult {
 }
 
 /**
- * Maior custo unitário da nota na janela móvel de 3 meses, convertido para a
+ * Maior custo unitário da nota na janela móvel de 8 meses, convertido para a
  * unidade do produto. Prioridade: fator do vínculo (cProd, sempre divide) →
  * fator do produto (op ÷/×). Usado pelo comprado (resolvePrice) e pela parcela
  * de mão de obra dos montados com soma_nota.
@@ -170,7 +173,7 @@ export function resolvePrice(
     };
   }
 
-  // 3. Comprado: markup sobre o maior custo dos 3 meses
+  // 3. Comprado: markup sobre o maior custo dos 8 meses
   if (custoComprado == null) {
     return {
       precoVenda: null, custoBase: null, margemPercent: null,
