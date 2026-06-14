@@ -9,6 +9,7 @@ import { useProdutosResolvidos, type LinhaProduto } from "@/hooks/useProdutosRes
 import {
   listConfigBitolas,
   addBitola,
+  updateBitola,
   deleteBitola,
   getPecaUsinado,
   upsertPecaUsinado,
@@ -246,6 +247,18 @@ function ConfigBitolas({ bitolas, linhas, prodPorId, aberto, onToggle, onChange 
   const [comprBarra, setComprBarra] = useState("6000");
   const [peso, setPeso] = useState("");
   const [busy, setBusy] = useState(false);
+  const [buscasItem, setBuscasItem] = useState<Record<string, string>>({});
+
+  const apontar = async (id: string, pid: string | null) => {
+    try {
+      await updateBitola(id, { produto_mestre_id: pid });
+      setBuscasItem((p) => ({ ...p, [id]: "" }));
+      onChange();
+      toast.success("Produto da bitola atualizado.");
+    } catch (err) {
+      toast.error(`Falha: ${errMsg(err)}`);
+    }
+  };
 
   const res = useMemo(() => {
     const q = normalize(busca.trim());
@@ -355,24 +368,46 @@ function ConfigBitolas({ bitolas, linhas, prodPorId, aberto, onToggle, onChange 
             </div>
           </div>
 
-          {/* Lista */}
+          {/* Lista com seletor de produto por bitola */}
           {bitolas.length === 0 ? (
             <p className="text-sm text-muted-foreground">Nenhuma bitola cadastrada.</p>
           ) : (
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-2">
               {bitolas.map((b) => {
                 const p = b.produto_mestre_id ? prodPorId.get(b.produto_mestre_id) : null;
+                const q = normalize((buscasItem[b.id] ?? "").trim());
+                const res = q ? linhas.filter((l) => normalize(`${l.codigo ?? ""} ${l.nome}`).includes(q)).slice(0, 6) : [];
                 return (
-                  <div key={b.id} className="flex items-center justify-between gap-2 border-b pb-1.5 text-sm last:border-0">
-                    <span>
-                      <span className="font-medium">{b.nome}</span>{" "}
-                      <span className="text-xs text-muted-foreground">
-                        ({b.tipo}, barra {Number(b.comprimento_barra_mm)}mm
-                        {b.peso_barra_kg != null ? `, ${Number(b.peso_barra_kg)}kg` : ""})
-                        {" — "}{p ? (p.resolvido.custoBase ? formatCurrency(p.resolvido.custoBase) : "sem custo") : "sem produto"}
+                  <div key={b.id} className="flex flex-col gap-1 border-b pb-2 last:border-0">
+                    <div className="flex items-center justify-between gap-2 text-sm">
+                      <span>
+                        <span className="font-medium">{b.nome}</span>{" "}
+                        <span className="text-xs text-muted-foreground">
+                          ({b.tipo}, barra {Number(b.comprimento_barra_mm)}mm
+                          {b.peso_barra_kg != null ? `, ${Number(b.peso_barra_kg)}kg` : ""})
+                          {" — "}{p ? `${p.codigo ? `${p.codigo} · ` : ""}${p.resolvido.custoBase ? formatCurrency(p.resolvido.custoBase) : "sem custo"}` : "sem produto"}
+                        </span>
                       </span>
-                    </span>
-                    <Button variant="ghost" size="sm" onClick={() => void remover(b.id)}>Remover</Button>
+                      <Button variant="ghost" size="sm" onClick={() => void remover(b.id)}>Remover</Button>
+                    </div>
+                    <div className="relative">
+                      <Input value={buscasItem[b.id] ?? ""} onChange={(e) => setBuscasItem((pp) => ({ ...pp, [b.id]: e.target.value }))}
+                        placeholder="Apontar produto da nota (código ou nome)…" className="h-8 text-xs" />
+                      {q && res.length > 0 && (
+                        <ul className="absolute z-50 mt-1 max-h-52 w-full overflow-auto rounded-md border bg-white p-1 shadow-lg">
+                          {res.map((l) => (
+                            <li key={l.id}>
+                              <button type="button" onClick={() => void apontar(b.id, l.id)}
+                                className="flex w-full items-center gap-2 rounded px-2 py-1 text-left text-xs hover:bg-accent">
+                                <span className="shrink-0 font-mono text-[11px] text-muted-foreground">{l.codigo ?? "—"}</span>
+                                <span className="truncate">{l.nome}</span>
+                                <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">{l.resolvido.custoBase ? formatCurrency(l.resolvido.custoBase) : "—"}</span>
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
                   </div>
                 );
               })}
