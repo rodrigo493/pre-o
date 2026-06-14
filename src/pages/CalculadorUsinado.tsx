@@ -381,6 +381,14 @@ function ConfigBitolas({ bitolas, linhas, prodPorId, aberto, onToggle, onChange 
               {bitolas.map((b) => {
                 const pid = acharProdutoDaBitola(b, linhas);
                 const p = pid ? prodPorId.get(pid) : null;
+                // Trefilado: valor da barra = R$/kg × peso. Plástico: R$/un (barra 1m) direto.
+                const custoUn =
+                  p?.resolvido.custoBase != null
+                    ? b.tipo === "trefilado"
+                      ? rkgDe(p) * Number(b.peso_barra_kg ?? 0)
+                      : p.resolvido.custoBase
+                    : null;
+                const rotuloUn = b.tipo === "trefilado" ? "/barra" : "/un";
                 const q = normalize((buscasItem[b.id] ?? "").trim());
                 const res = q ? linhas.filter((l) => normalize(`${l.codigo ?? ""} ${l.nome}`).includes(q)).slice(0, 6) : [];
                 return (
@@ -391,7 +399,7 @@ function ConfigBitolas({ bitolas, linhas, prodPorId, aberto, onToggle, onChange 
                         <span className="text-xs text-muted-foreground">
                           ({b.tipo}, barra {Number(b.comprimento_barra_mm)}mm
                           {b.peso_barra_kg != null ? `, ${Number(b.peso_barra_kg)}kg` : ""})
-                          {" — "}{p ? `${p.codigo ? `${p.codigo} · ` : ""}${p.resolvido.custoBase ? formatCurrency(p.resolvido.custoBase) : "sem custo"}` : "sem produto"}
+                          {" — "}{p ? `${p.codigo ? `${p.codigo} · ` : ""}${custoUn && custoUn > 0 ? formatCurrency(custoUn) + rotuloUn : "sem custo"}` : "sem produto"}
                         </span>
                       </span>
                       <Button variant="ghost" size="sm" onClick={() => void remover(b.id)}>Remover</Button>

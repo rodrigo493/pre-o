@@ -10,6 +10,7 @@ import { listConfigChapas, setChapaProduto } from "@/repositories/configChapasRe
 import { getPecaLaser, upsertPecaLaser } from "@/repositories/pecasLaserRepo";
 import { getConfig } from "@/repositories/configRepo";
 import { calcularCustoPecaLaser } from "@/lib/laserCost";
+import { rkgCru } from "@/lib/rkgCru";
 import { formatCurrency } from "@/lib/pricing";
 
 function errMsg(err: unknown): string {
@@ -259,14 +260,11 @@ export default function CalculadorLaser() {
                 ? linhas.find((l) => l.id === c.produto_mestre_id)
                 : linhas.find((l) => (l.codigo ?? "").trim().toUpperCase() === c.chapa_codigo.trim().toUpperCase());
               const baseAtual = atual?.resolvido.custoBase ?? null;
-              const fatorAtual = atual?.fatorConversao ?? null;
-              const rkgAtual =
+              // Valor da chapa por unidade = R$/kg cru × peso (desfaz qualquer fator).
+              const valUn =
                 baseAtual != null
-                  ? atual?.conversaoOp === "multiplicar" && fatorAtual && fatorAtual > 0
-                    ? baseAtual / fatorAtual
-                    : baseAtual
+                  ? rkgCru(baseAtual, atual?.fatorConversao ?? null, atual?.conversaoOp ?? null) * Number(c.peso_kg)
                   : null;
-              const valUn = rkgAtual != null ? rkgAtual * Number(c.peso_kg) : null;
               const q = normalize((configBuscas[String(esp)] ?? "").trim());
               const res = q
                 ? linhas.filter((l) => normalize(`${l.codigo ?? ""} ${l.nome}`).includes(q)).slice(0, 6)

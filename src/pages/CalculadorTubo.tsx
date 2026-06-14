@@ -277,6 +277,7 @@ function ConfigTubos({ tubos, linhas, prodPorId, aberto, onToggle, onChange }: C
             const pid = acharProdutoDaBitola(b, linhas);
             const p = pid ? prodPorId.get(pid) : null;
             const rkg = rkgDe(p ?? undefined);
+            const valBarra = rkg * Number(b.peso_barra_kg ?? 0); // valor da barra = R$/kg × peso
             const q = normalize((buscas[b.id] ?? "").trim());
             const res = q ? linhas.filter((l) => normalize(`${l.codigo ?? ""} ${l.nome}`).includes(q)).slice(0, 6) : [];
             return (
@@ -284,7 +285,7 @@ function ConfigTubos({ tubos, linhas, prodPorId, aberto, onToggle, onChange }: C
                 <div className="flex items-center justify-between gap-2 text-sm">
                   <span className="font-medium">{b.nome} <span className="text-xs text-muted-foreground">({Number(b.peso_barra_kg)}kg)</span></span>
                   <span className="text-xs text-muted-foreground">
-                    {p ? `${p.codigo ? `${p.codigo} · ` : ""}${p.nome} — ${rkg > 0 ? formatCurrency(rkg) + "/kg" : "sem custo"}` : "sem produto"}
+                    {p ? `${p.codigo ? `${p.codigo} · ` : ""}${p.nome} — ${valBarra > 0 ? `${formatCurrency(valBarra)}/barra (${formatCurrency(rkg)}/kg)` : "sem custo"}` : "sem produto"}
                   </span>
                 </div>
                 <div className="relative">
