@@ -62,11 +62,13 @@ function prefixoCodigo(codigo: string): string {
 }
 
 /**
- * Decide o tipo SÓ pelo prefixo do código (US/LA/TB/MO/MOF = peça/conjunto montado).
- * NÃO usa a coluna Ressuprimento (comprado/fabricado) — a pedido: separar pelo grupo.
+ * Decide o tipo (comprado/montado): por prefixo do código (US/LA/TB/MO/MOF) OU
+ * "Fabricado" no Ressuprimento. O Ressuprimento define o TIPO, mas NÃO agrupa:
+ * a separação/categoria é sempre pela coluna "Grupo de produto".
  */
-function decidirTipo(codigo: string): CatalogTipo {
+function decidirTipo(codigo: string, ressupText: string): CatalogTipo {
   if (FABRICADO_PREFIXES.has(prefixoCodigo(codigo))) return "montado";
+  if (/fabricado/i.test(ressupText)) return "montado";
   return "comprado";
 }
 
@@ -250,7 +252,8 @@ export function parseCatalogWithDiag(pages: Array<Array<PDFTextItem>>): CatalogP
         const unidadeCells = cells
           .filter((c) => c.x >= descricaoEnd && c.x < anchors!.tipoX && isUnitLike(c.str))
           .sort((a, b) => a.x - b.x);
-        const tipo: CatalogTipo = decidirTipo(codigo);
+        const ressupText = cells.map((c) => c.str).join(" ");
+        const tipo: CatalogTipo = decidirTipo(codigo, ressupText);
 
         pending = {
           codigo,
@@ -344,6 +347,7 @@ export function parseCatalogFromSheetMatrix(matrix: unknown[][]): CatalogProduct
     return header.findIndex((h) => (h.includes("um") || h.includes("unidade")) && !h.includes("secund"));
   })();
   const iGrupo = header.findIndex((h) => h.includes("grupo"));
+  const iRessup = header.findIndex((h) => h.includes("ressup"));
   if (iCodigo < 0 || iDescricao < 0) return [];
 
   const cell = (row: unknown[], i: number): string => (i >= 0 ? String(row?.[i] ?? "").trim() : "");
@@ -361,7 +365,7 @@ export function parseCatalogFromSheetMatrix(matrix: unknown[][]): CatalogProduct
       nome,
       unidade: um ? normalizeUnit(um) : null,
       unidadeSecundaria: umSec ? normalizeUnit(umSec) : null,
-      tipo: decidirTipo(codigo),
+      tipo: decidirTipo(codigo, cell(row, iRessup)),
       categoria: limparCategoria(cell(row, iGrupo)) || null,
     });
   }

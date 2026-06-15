@@ -78,7 +78,7 @@ describe("parseCatalogFromPositionedItems", () => {
         nome: "ACESSÓRIO JUMP",
         unidade: "UNIDADE",
         unidadeSecundaria: null,
-        tipo: "comprado", // prefixo KIT não é montado; Ressuprimento não conta mais
+        tipo: "montado", // Ressuprimento "Fabricado" define o tipo (não agrupa)
         categoria: "01 - PRODUTO ACABADO",
       },
     ]);
