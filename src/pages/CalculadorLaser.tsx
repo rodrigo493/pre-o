@@ -81,8 +81,7 @@ export default function CalculadorLaser() {
   }, [linhas, busca]);
 
   const chapa = chapas.find((c) => Number(c.espessura) === espessura) ?? null;
-  // Recupera o R$/kg da chapa (desfaz um fator × se houver) e multiplica pelo peso da config.
-  // Robusto: funciona com a chapa em R$/kg OU já por unidade (fator × peso).
+  // R$/kg cru da chapa (fonte única, desfaz qualquer fator) × peso da config = valor da chapa.
   const rkgChapa = useMemo(() => {
     if (!chapa) return 0;
     const prod = chapa.produto_mestre_id
@@ -90,9 +89,7 @@ export default function CalculadorLaser() {
       : linhas.find(
           (l) => (l.codigo ?? "").trim().toUpperCase() === chapa.chapa_codigo.trim().toUpperCase(),
         );
-    const base = prod?.resolvido.custoBase ?? 0;
-    const fator = prod?.fatorConversao ?? null;
-    return prod?.conversaoOp === "multiplicar" && fator && fator > 0 ? base / fator : base;
+    return rkgCru(prod?.resolvido.custoBase ?? 0, prod?.fatorConversao ?? null, prod?.conversaoOp ?? null);
   }, [chapa, linhas]);
   const valorChapaUnit = rkgChapa * (chapa ? Number(chapa.peso_kg) : 0);
 
