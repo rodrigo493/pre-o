@@ -33,6 +33,8 @@ export interface LinhaProduto extends ProdutoMestre {
   maoDeObraPendente: boolean;
   /** Maior custo da nota do PRÓPRIO código (montados; null = sem nota na janela). */
   custoNotaProprio: number | null;
+  /** Montado tem composição (componentes cadastrados). */
+  temComposicao: boolean;
 }
 
 export function useProdutosResolvidos() {
@@ -249,6 +251,7 @@ export function useProdutosResolvidos() {
             custoCorteLaser: 0,
             maoDeObraPendente: false,
             custoNotaProprio: null,
+            temComposicao: false,
             resolvido: {
               precoVenda: preco,
               custoBase: custoLaser,
@@ -287,6 +290,7 @@ export function useProdutosResolvidos() {
           custoCorteLaser,
           maoDeObraPendente,
           custoNotaProprio: m.tipo === "montado" ? custoNotaPorId.get(m.id) ?? null : null,
+          temComposicao: (compPorMontado.get(m.id)?.length ?? 0) > 0,
           resolvido: resolvePrice(produto, porMestre.get(m.id) ?? [], cfg, hoje),
         };
       });

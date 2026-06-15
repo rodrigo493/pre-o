@@ -44,8 +44,13 @@ export default function ProdutoMontado() {
 
   const produtosQuery = useProdutosResolvidos();
 
+  // Só os montados criados aqui: com composição cadastrada OU preço manual travado.
+  // (Os milhares de montados do catálogo sem composição ficam fora da lista.)
   const montados = useMemo(
-    () => (produtosQuery.data ?? []).filter((p) => p.tipo === "montado"),
+    () =>
+      (produtosQuery.data ?? []).filter(
+        (p) => p.tipo === "montado" && (p.temComposicao || p.precoManual != null),
+      ),
     [produtosQuery.data],
   );
 
@@ -243,8 +248,8 @@ export default function ProdutoMontado() {
                         <PriceBadge status={r.status} />
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="sm" onClick={() => abrirEdicao(p)}>
-                          Composição
+                        <Button variant="outline" size="sm" onClick={() => abrirEdicao(p)}>
+                          Editar
                         </Button>
                       </TableCell>
                     </TableRow>
