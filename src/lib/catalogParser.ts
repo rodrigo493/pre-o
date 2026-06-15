@@ -74,20 +74,28 @@ interface ColumnAnchors {
   tipoX: number;
   grupoX: number | null;
   familiaX: number | null;
+  ressupX: number | null;
 }
 
+/**
+ * Acha as âncoras das colunas. Funde a "banda" do cabeçalho (linha do "Código"
+ * + as 2 linhas seguintes), porque no Nomus os títulos quebram em duas baselines
+ * ("Código do" / "produto") e um jitter de 1px separaria as células — o que antes
+ * fazia o PDF inteiro virar 0 produtos sem aviso.
+ */
 function findAnchors(rows: Array<Array<{ str: string; x: number }>>): ColumnAnchors | null {
-  for (const cells of rows) {
-    const joined = cells.map((c) => c.str).join(" ");
-    if (!joined.includes("Código") || !/Descri/.test(joined)) continue;
+  for (let i = 0; i < rows.length; i++) {
+    if (!rows[i].some((c) => c.str.includes("Código"))) continue;
 
-    const codigo = cells.find((c) => c.str.includes("Código"));
-    const descricao = cells.find((c) => /Descri/.test(c.str));
+    const band = [...rows[i], ...(rows[i + 1] ?? []), ...(rows[i + 2] ?? [])];
+    const codigo = band.find((c) => c.str.includes("Código"));
+    const descricao = band.find((c) => /Descri/.test(c.str));
     // Primeiro "U.M." pela posição (a Secundária vem depois).
-    const ums = cells.filter((c) => /^U\.?M\.?/i.test(c.str.trim())).sort((a, b) => a.x - b.x);
-    const tipo = cells.find((c) => /^Tipo/.test(c.str.trim()));
-    const grupo = cells.find((c) => /^Grupo/.test(c.str.trim()));
-    const familia = cells.find((c) => /^Fam/.test(c.str.trim()));
+    const ums = band.filter((c) => /^U\.?M\.?/i.test(c.str.trim())).sort((a, b) => a.x - b.x);
+    const tipo = band.find((c) => /^Tipo/.test(c.str.trim()));
+    const grupo = band.find((c) => /^Grupo/.test(c.str.trim()));
+    const familia = band.find((c) => /^Fam/.test(c.str.trim()));
+    const ressup = band.find((c) => /^Ressup/.test(c.str.trim()));
     if (!codigo || !descricao || ums.length === 0 || !tipo) continue;
 
     return {
@@ -97,64 +105,101 @@ function findAnchors(rows: Array<Array<{ str: string; x: number }>>): ColumnAnch
       tipoX: tipo.x,
       grupoX: grupo ? grupo.x : null,
       familiaX: familia ? familia.x : null,
+      ressupX: ressup ? ressup.x : null,
     };
   }
   return null;
 }
 
+/**
+ * Agrupa itens em linhas visuais por proximidade de Y (tolerância), em vez de
+ * arredondar para um bucket fixo. Bucket fixo separava células da mesma linha
+ * quando o Y diferia por ~1px na fronteira do bucket.
+ */
+const Y_TOL = 4;
 function groupRows(items: PDFTextItem[]): Array<Array<{ str: string; x: number }>> {
-  const map = new Map<number, Array<{ str: string; x: number }>>();
-  for (const it of items) {
-    if (!it.str.trim()) continue;
-    const y = Math.round(it.y / 3) * 3;
-    if (!map.has(y)) map.set(y, []);
-    map.get(y)!.push({ str: it.str.trim(), x: it.x });
+  const cells = items
+    .filter((it) => it.str.trim())
+    .map((it) => ({ str: it.str.trim(), x: it.x, y: it.y }))
+    .sort((a, b) => a.y - b.y || a.x - b.x);
+
+  const rows: Array<{ y: number; cells: Array<{ str: string; x: number }> }> = [];
+  for (const c of cells) {
+    const last = rows[rows.length - 1];
+    if (last && Math.abs(c.y - last.y) <= Y_TOL) {
+      last.cells.push({ str: c.str, x: c.x });
+    } else {
+      rows.push({ y: c.y, cells: [{ str: c.str, x: c.x }] });
+    }
   }
-  return Array.from(map.entries())
-    .sort((a, b) => a[0] - b[0])
-    .map(([, cells]) => cells.sort((a, b) => a.x - b.x));
+  return rows.map((r) => r.cells.sort((a, b) => a.x - b.x));
+}
+
+/** Remove palavras de outras colunas que possam ter vazado para o grupo. */
+function limparCategoria(cat: string): string {
+  return cat
+    .replace(/\s+/g, " ")
+    .replace(/\b(Comprado|Fabricado|Sim|N[ãa]o)\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function isHeaderRow(cells: Array<{ str: string; x: number }>): boolean {
   return cells.some((c) => c.str.includes("Código")) && cells.some((c) => /Descri/.test(c.str));
 }
 
+export interface CatalogParseResult {
+  produtos: CatalogProduct[];
+  paginas: number;
+  porPagina: number[]; // produtos reconhecidos por página (aprox. na virada)
+  anchorsAchados: boolean; // se o cabeçalho de colunas foi reconhecido
+}
+
 /**
- * Parse o relatório "Produtos | Nomus" a partir dos itens posicionados do PDF.
- * Mantém o produto pendente entre páginas para tratar descrições que quebram
- * na virada de página. Colunas são separadas pelos pontos médios entre âncoras.
+ * Parse o relatório "Produtos | Nomus" a partir dos itens posicionados do PDF,
+ * com diagnóstico por página. Mantém o produto pendente entre páginas para
+ * tratar descrições que quebram na virada. Colunas separadas pelos pontos
+ * médios entre âncoras; a coluna Grupo é limitada por Família/Ressuprimento.
  */
-export function parseCatalogFromPositionedItems(
-  pages: Array<Array<PDFTextItem>>,
-): CatalogProduct[] {
+export function parseCatalogWithDiag(pages: Array<Array<PDFTextItem>>): CatalogParseResult {
   const products: CatalogProduct[] = [];
+  const porPagina: number[] = pages.map(() => 0);
   let anchors: ColumnAnchors | null = null;
   let pending: CatalogProduct | null = null;
+  let pendingPagina = -1; // página onde o produto pendente começou
 
   const flush = () => {
     if (!pending) return;
     pending.nome = pending.nome.replace(/\s+/g, " ").trim();
-    const cat = (pending.categoria ?? "").replace(/\s+/g, " ").trim();
-    pending.categoria = cat || null;
-    if (pending.codigo && pending.nome) products.push(pending);
+    pending.categoria = limparCategoria(pending.categoria ?? "") || null;
+    // Conta no flush (atribui à página de origem) e só o que será mantido —
+    // assim a 2ª baseline do cabeçalho ("produto") não infla a contagem.
+    if (pending.codigo && pending.nome) {
+      products.push(pending);
+      if (pendingPagina >= 0) porPagina[pendingPagina] += 1;
+    }
     pending = null;
   };
 
-  for (const pageItems of pages) {
+  for (let pageIdx = 0; pageIdx < pages.length; pageIdx++) {
+    const pageItems = pages[pageIdx];
     const rows = groupRows(pageItems);
     if (!anchors) anchors = findAnchors(rows);
     if (!anchors) continue;
 
     const codigoEnd = (anchors.codigoX + anchors.descricaoX) / 2;
     const descricaoEnd = (anchors.descricaoX + anchors.umX) / 2;
-    // Faixa da coluna "Grupo de produto" (entre Tipo e Família).
+    // Faixa da coluna "Grupo de produto": entre Tipo e a próxima coluna
+    // (Família, se houver; senão Ressuprimento; senão margem fixa).
     const grupoStart = anchors.grupoX != null ? (anchors.tipoX + anchors.grupoX) / 2 : null;
     const grupoEnd =
-      anchors.grupoX != null
-        ? anchors.familiaX != null
+      anchors.grupoX == null
+        ? null
+        : anchors.familiaX != null
           ? (anchors.grupoX + anchors.familiaX) / 2
-          : anchors.grupoX + 100
-        : null;
+          : anchors.ressupX != null
+            ? (anchors.grupoX + anchors.ressupX) / 2
+            : anchors.grupoX + 80;
 
     const grupoDe = (cells: Array<{ str: string; x: number }>): string => {
       if (grupoStart == null || grupoEnd == null) return "";
@@ -177,6 +222,7 @@ export function parseCatalogFromPositionedItems(
       if (codigo) {
         // Nova linha de produto
         flush();
+        pendingPagina = pageIdx;
 
         const unidadeCells = cells
           .filter((c) => c.x >= descricaoEnd && c.x < anchors!.tipoX && isUnitLike(c.str))
@@ -193,7 +239,8 @@ export function parseCatalogFromPositionedItems(
           categoria: grupo || null,
         };
       } else if (pending) {
-        // Continuação (multilinha / virada de página): acumula descrição e grupo.
+        // Continuação (multilinha / virada de página): acumula descrição e grupo
+        // (nomes de grupo podem quebrar em 2 linhas no Nomus).
         if (descricao) pending.nome = `${pending.nome} ${descricao}`;
         if (grupo) pending.categoria = pending.categoria ? `${pending.categoria} ${grupo}` : grupo;
       }
@@ -201,7 +248,20 @@ export function parseCatalogFromPositionedItems(
   }
 
   flush();
-  return products;
+
+  return {
+    produtos: products,
+    paginas: pages.length,
+    porPagina,
+    anchorsAchados: anchors != null,
+  };
+}
+
+/** Compatibilidade: devolve só os produtos. */
+export function parseCatalogFromPositionedItems(
+  pages: Array<Array<PDFTextItem>>,
+): CatalogProduct[] {
+  return parseCatalogWithDiag(pages).produtos;
 }
 
 /** Junta produtos de vários PDFs e remove duplicados por código (mantém o último). */
@@ -216,4 +276,11 @@ export async function parseCatalogFile(file: File): Promise<CatalogProduct[]> {
   const buffer = await readFileAsArrayBuffer(file);
   const pages = await extractPositionedTextFromPDF(buffer);
   return parseCatalogFromPositionedItems(pages);
+}
+
+/** Lê um PDF de catálogo Nomus e devolve produtos + diagnóstico por página. */
+export async function parseCatalogFileWithDiag(file: File): Promise<CatalogParseResult> {
+  const buffer = await readFileAsArrayBuffer(file);
+  const pages = await extractPositionedTextFromPDF(buffer);
+  return parseCatalogWithDiag(pages);
 }

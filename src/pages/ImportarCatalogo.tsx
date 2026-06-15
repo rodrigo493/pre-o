@@ -13,9 +13,17 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import ImportDropzone from "@/components/ImportDropzone";
-import { parseCatalogFile, dedupeCatalog, type CatalogProduct } from "@/lib/catalogParser";
-import { extractPositionedTextFromPDF, readFileAsArrayBuffer } from "@/lib/parsers";
+import { parseCatalogFileWithDiag, dedupeCatalog, type CatalogProduct } from "@/lib/catalogParser";
 import { listProdutosMestre, upsertCatalogByCodigo } from "@/repositories/produtosMestreRepo";
+
+interface FileReport {
+  nome: string;
+  paginas: number;
+  porPagina: number[];
+  total: number;
+  anchorsAchados: boolean;
+  erro?: string;
+}
 
 function normalize(s: string): string {
   return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
@@ -37,6 +45,7 @@ export default function ImportarCatalogo() {
   const [parsing, setParsing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [progress, setProgress] = useState({ atual: 0, total: 0 });
+  const [relatorio, setRelatorio] = useState<FileReport[]>([]);
 
   // Códigos já existentes para mostrar "novos vs atualizam".
   const mestresQuery = useQuery({ queryKey: ["produtos-mestre"], queryFn: listProdutosMestre });
@@ -54,42 +63,52 @@ export default function ImportarCatalogo() {
     setParsing(true);
     setProgress({ atual: 0, total: pdfs.length });
     const todos: CatalogProduct[] = [];
+    const reports: FileReport[] = [];
     let i = 0;
     for (const file of pdfs) {
       i += 1;
       setProgress({ atual: i, total: pdfs.length });
       try {
-        const lidos = await parseCatalogFile(file);
-        todos.push(...lidos);
-        if (lidos.length === 0) {
-          // Diagnóstico: descobrir onde falhou (extração vs reconhecimento de colunas).
-          try {
-            const buf = await readFileAsArrayBuffer(file);
-            const pages = await extractPositionedTextFromPDF(buf);
-            const totalItens = pages.reduce((a, p) => a + p.length, 0);
-            const amostra = (pages[0] ?? [])
-              .slice(0, 20)
-              .map((i) => `${Math.round(i.x)},${Math.round(i.y)}:${i.str}`);
-            // eslint-disable-next-line no-console
-            console.warn(
-              `[catalogo] ${file.name}: 0 produtos | páginas=${pages.length} itens=${totalItens}`,
-              amostra,
-            );
+        const diag = await parseCatalogFileWithDiag(file);
+        todos.push(...diag.produtos);
+        reports.push({
+          nome: file.name,
+          paginas: diag.paginas,
+          porPagina: diag.porPagina,
+          total: diag.produtos.length,
+          anchorsAchados: diag.anchorsAchados,
+        });
+        // Avisos claros por arquivo.
+        if (!diag.anchorsAchados) {
+          toast.error(`${file.name}: cabeçalho não reconhecido — 0 produtos lidos.`);
+        } else {
+          const pagsVazias = diag.porPagina
+            .map((n, idx) => ({ n, idx }))
+            .filter((p) => p.n === 0);
+          if (pagsVazias.length > 0) {
             toast.warning(
-              `${file.name}: 0 produtos. Páginas=${pages.length}, itens lidos=${totalItens} (veja o Console F12).`,
+              `${file.name}: ${diag.produtos.length} produtos, mas página(s) ${pagsVazias
+                .map((p) => p.idx + 1)
+                .join(", ")} ficaram vazias — confira.`,
             );
-          } catch (diagErr) {
-            // eslint-disable-next-line no-console
-            console.warn(`[catalogo] ${file.name}: extração falhou`, diagErr);
           }
         }
       } catch (err) {
+        reports.push({
+          nome: file.name,
+          paginas: 0,
+          porPagina: [],
+          total: 0,
+          anchorsAchados: false,
+          erro: errMsg(err),
+        });
         toast.error(`Falha ao ler ${file.name}: ${errMsg(err)}`);
       }
     }
+    setRelatorio(reports);
     if (todos.length > 0) {
       setProdutos((prev) => dedupeCatalog([...prev, ...todos]));
-      toast.success(`${todos.length} linha(s) lida(s) em ${pdfs.length} PDF(s).`);
+      toast.success(`${todos.length} produto(s) lido(s) em ${pdfs.length} PDF(s).`);
     } else {
       toast.warning("Nenhum produto reconhecido nos PDFs.");
     }
@@ -178,6 +197,26 @@ export default function ImportarCatalogo() {
             <p className="mt-3 text-sm text-muted-foreground">
               Lendo PDFs… {progress.total > 0 ? `${progress.atual}/${progress.total}` : ""}
             </p>
+          )}
+          {relatorio.length > 0 && (
+            <div className="mt-4 space-y-1.5 text-xs">
+              {relatorio.map((r) => {
+                const ok = r.anchorsAchados && !r.erro && r.porPagina.every((n) => n > 0);
+                return (
+                  <div key={r.nome} className="flex items-center gap-2">
+                    <span className={ok ? "text-emerald-600" : "text-amber-600"}>{ok ? "✓" : "⚠"}</span>
+                    <span className="font-medium">{r.nome}</span>
+                    <span className="text-muted-foreground">
+                      {r.erro
+                        ? `erro: ${r.erro}`
+                        : !r.anchorsAchados
+                          ? "cabeçalho não reconhecido — 0 produtos"
+                          : `${r.total} produtos · ${r.paginas} pág. · por página: [${r.porPagina.join(", ")}]`}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </CardContent>
       </Card>

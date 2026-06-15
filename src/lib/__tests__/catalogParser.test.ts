@@ -147,6 +147,114 @@ describe("parseCatalogFromPositionedItems", () => {
   });
 });
 
+describe("regressões dos PDFs reais (Produtos | Nomus)", () => {
+  // Cabeçalho do Nomus quebra em 2 baselines: "Código do" / "produto".
+  // Um jitter de ~2px no Y NÃO pode separar as células a ponto de não achar o
+  // cabeçalho (senão o PDF inteiro vira 0 produtos sem aviso claro).
+  function headerNomus(yTopo: number): PDFTextItem[] {
+    return [
+      // baseline de cima (com jitter de até 2px entre colunas)
+      item("Código do", 50, yTopo),
+      item("Descrição", 200, yTopo + 2),
+      item("U.M.", 320, yTopo + 1),
+      item("U.M.", 400, yTopo),
+      item("Tipo de", 470, yTopo + 2),
+      item("Grupo de", 540, yTopo + 1),
+      item("Ressuprimento", 660, yTopo),
+      item("Estoque", 760, yTopo + 1),
+      item("Ativo", 840, yTopo),
+      // baseline de baixo (segunda linha do título)
+      item("produto", 50, yTopo + 14),
+      item("Secundária", 400, yTopo + 14),
+      item("produto", 470, yTopo + 14),
+      item("produto", 540, yTopo + 14),
+    ];
+  }
+
+  it("acha o cabeçalho mesmo com jitter de Y e lê todas as páginas", () => {
+    const page1: PDFTextItem[] = [
+      ...headerNomus(40),
+      item("US.RF.128", 50, 80),
+      item("BOTÃO MOLAS", 200, 80),
+      item("PEÇA", 320, 80),
+      item("Matéria prima", 470, 80),
+      item("04 - USINADOS", 540, 80),
+      item("Comprado", 660, 80),
+      item("0 PÇ", 760, 80),
+      item("Sim", 840, 80),
+    ];
+    // Página 2 SEM o título "Produtos | Nomus", só o cabeçalho de colunas.
+    const page2: PDFTextItem[] = [
+      ...headerNomus(40),
+      item("US.RM.001", 50, 80),
+      item("RODA NYLON REMO", 200, 80),
+      item("PEÇA", 320, 80),
+      item("Matéria prima", 470, 80),
+      item("04 - USINADOS", 540, 80),
+      item("Comprado", 660, 80),
+      item("99 PÇ", 760, 80),
+      item("Sim", 840, 80),
+    ];
+
+    const result = parseCatalogFromPositionedItems([page1, page2]);
+    expect(result.map((p) => p.codigo)).toEqual(["US.RF.128", "US.RM.001"]);
+    // a coluna Grupo NÃO pode pegar "Comprado" / estoque / "Sim".
+    expect(result.every((p) => p.categoria === "04 - USINADOS")).toBe(true);
+  });
+
+  it("não deixa 'Comprado'/'Fabricado' vazar para o grupo (unifica os 3)", () => {
+    const page: PDFTextItem[] = [
+      ...headerNomus(40),
+      // Comprado
+      item("US.A", 50, 80),
+      item("PEÇA A", 200, 80),
+      item("04 - USINADOS", 540, 80),
+      item("Comprado", 660, 80),
+      // Fabricado
+      item("US.B", 50, 110),
+      item("PEÇA B", 200, 110),
+      item("04 - USINADOS", 540, 110),
+      item("Fabricado", 660, 110),
+    ];
+    const result = parseCatalogFromPositionedItems([page]);
+    const grupos = new Set(result.map((p) => p.categoria));
+    expect(grupos.size).toBe(1);
+    expect([...grupos][0]).toBe("04 - USINADOS");
+  });
+
+  it("lê código que contém espaço (ex.: 'US.EIXO GABARITO')", () => {
+    const page: PDFTextItem[] = [
+      ...headerNomus(40),
+      item("US.EIXO", 50, 80),
+      item("GABARITO", 100, 80),
+      item("EIXO GABARITO", 200, 80),
+      item("PEÇA", 320, 80),
+      item("04 - USINADOS", 540, 80),
+      item("Comprado", 660, 80),
+    ];
+    const result = parseCatalogFromPositionedItems([page]);
+    expect(result).toHaveLength(1);
+    expect(result[0].codigo).toBe("US.EIXO GABARITO");
+    expect(result[0].nome).toBe("EIXO GABARITO");
+  });
+
+  it("diagnóstico: porPagina e anchorsAchados refletem o que foi lido", async () => {
+    const { parseCatalogWithDiag } = await import("@/lib/catalogParser");
+    const page1: PDFTextItem[] = [
+      ...headerNomus(40),
+      item("US.A", 50, 80),
+      item("PEÇA A", 200, 80),
+      item("04 - USINADOS", 540, 80),
+      item("Comprado", 660, 80),
+    ];
+    const semCabecalho: PDFTextItem[] = [item("lixo", 10, 10)];
+    const diag = parseCatalogWithDiag([page1, semCabecalho]);
+    expect(diag.anchorsAchados).toBe(true);
+    expect(diag.produtos).toHaveLength(1);
+    expect(diag.porPagina[0]).toBe(1);
+  });
+});
+
 describe("dedupeCatalog", () => {
   it("remove duplicados por código mantendo o último", () => {
     const dup: CatalogProduct[] = [
