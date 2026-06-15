@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Trash2 } from "lucide-react";
@@ -35,6 +36,14 @@ function errMsg(err: unknown): string {
   return "erro desconhecido";
 }
 
+/** Aba do Calculador pelo prefixo do código: US→usinado, TB→tubo, resto (LA/EST/capas)→laser. */
+function tipoCalculador(codigo: string | null | undefined): "laser" | "tubo" | "usinado" {
+  const c = (codigo ?? "").trim().toUpperCase();
+  if (c.startsWith("US")) return "usinado";
+  if (c.startsWith("TB")) return "tubo";
+  return "laser";
+}
+
 function parseNumber(value: string): number | null {
   const trimmed = value.trim();
   if (trimmed === "") return null;
@@ -58,6 +67,7 @@ export default function EditarMontadoDialog({
   onOpenChange,
 }: EditarMontadoDialogProps) {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [nome, setNome] = useState("");
   const [codigo, setCodigo] = useState("");
   const [categoria, setCategoria] = useState("");
@@ -386,7 +396,15 @@ export default function EditarMontadoDialog({
                             {info?.codigo ?? ""}
                           </span>
                           {custoUn === 0 && (
-                            <span className="ml-2 text-[11px] text-amber-600">sem custo</span>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                navigate(`/calculador?aba=${tipoCalculador(info?.codigo)}&peca=${c.componente_id}`)
+                              }
+                              className="ml-2 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-700 hover:bg-amber-100"
+                            >
+                              sem custo · Calcular →
+                            </button>
                           )}
                         </td>
                         <td className="px-3 py-2 text-right font-mono-num text-muted-foreground">

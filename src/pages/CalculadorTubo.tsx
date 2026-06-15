@@ -38,7 +38,7 @@ function dimDaBitola(nome: string): string {
   return normalize(nome.replace(/^(redondo|quadrado|cantoneira|ferro chato)\s*/i, "")).replace(/\s+/g, "");
 }
 
-export default function CalculadorTubo() {
+export default function CalculadorTubo({ pecaIdInicial }: { pecaIdInicial?: string } = {}) {
   const queryClient = useQueryClient();
   const produtosQuery = useProdutosResolvidos();
   const bitolasQuery = useQuery({ queryKey: ["config-bitolas"], queryFn: listConfigBitolas });
@@ -47,7 +47,7 @@ export default function CalculadorTubo() {
   const prodPorId = useMemo(() => new Map(linhas.map((l) => [l.id, l])), [linhas]);
   const tubos = (bitolasQuery.data ?? []).filter((b) => b.tipo === "tubo");
 
-  const [pecaId, setPecaId] = useState<string | null>(null);
+  const [pecaId, setPecaId] = useState<string | null>(pecaIdInicial ?? null);
   const [busca, setBusca] = useState("");
   const [bitolaId, setBitolaId] = useState("");
   const [comprimento, setComprimento] = useState("");

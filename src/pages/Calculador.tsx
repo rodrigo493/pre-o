@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import CalculadorLaser from "@/pages/CalculadorLaser";
 import CalculadorUsinado from "@/pages/CalculadorUsinado";
 import CalculadorTubo from "@/pages/CalculadorTubo";
@@ -13,7 +14,12 @@ const ABAS: Array<{ id: Aba; label: string }> = [
 ];
 
 export default function Calculador() {
-  const [aba, setAba] = useState<Aba>("laser");
+  const [params] = useSearchParams();
+  const abaUrl = params.get("aba") as Aba | null;
+  const pecaUrl = params.get("peca") ?? undefined;
+  const [aba, setAba] = useState<Aba>(
+    abaUrl && ABAS.some((a) => a.id === abaUrl) ? abaUrl : "laser",
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -36,9 +42,9 @@ export default function Calculador() {
         ))}
       </div>
 
-      {aba === "laser" && <CalculadorLaser />}
-      {aba === "usinado" && <CalculadorUsinado />}
-      {aba === "tubo" && <CalculadorTubo />}
+      {aba === "laser" && <CalculadorLaser pecaIdInicial={pecaUrl} />}
+      {aba === "usinado" && <CalculadorUsinado pecaIdInicial={pecaUrl} />}
+      {aba === "tubo" && <CalculadorTubo pecaIdInicial={pecaUrl} />}
       {aba === "pintado" && <EmBreve titulo="Montados pintados" />}
     </div>
   );

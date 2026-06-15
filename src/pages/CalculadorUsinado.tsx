@@ -34,7 +34,7 @@ function rkgDe(prod: LinhaProduto | undefined): number {
   return rkgCru(prod?.resolvido.custoBase ?? 0, prod?.fatorConversao ?? null, prod?.conversaoOp ?? null);
 }
 
-export default function CalculadorUsinado() {
+export default function CalculadorUsinado({ pecaIdInicial }: { pecaIdInicial?: string } = {}) {
   const queryClient = useQueryClient();
   const produtosQuery = useProdutosResolvidos();
   const bitolasQuery = useQuery({ queryKey: ["config-bitolas"], queryFn: listConfigBitolas });
@@ -42,7 +42,7 @@ export default function CalculadorUsinado() {
   const bitolas = bitolasQuery.data ?? [];
   const prodPorId = useMemo(() => new Map(linhas.map((l) => [l.id, l])), [linhas]);
 
-  const [pecaId, setPecaId] = useState<string | null>(null);
+  const [pecaId, setPecaId] = useState<string | null>(pecaIdInicial ?? null);
   const [busca, setBusca] = useState("");
   const [trefId, setTrefId] = useState("");
   const [plastId, setPlastId] = useState("");

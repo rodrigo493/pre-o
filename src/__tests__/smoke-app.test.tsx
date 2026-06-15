@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from "vitest";
 import { render } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import EditarMontadoDialog, { type ProdutoMontadoRow } from "@/components/EditarMontadoDialog";
 
@@ -37,15 +38,19 @@ describe("EditarMontadoDialog", () => {
   it("nao crasha ao reabrir com produto (regressao: hook depois de early return)", () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const { rerender } = render(
-      <QueryClientProvider client={qc}>
-        <EditarMontadoDialog produto={null} open={false} onOpenChange={() => {}} />
-      </QueryClientProvider>,
+      <MemoryRouter>
+        <QueryClientProvider client={qc}>
+          <EditarMontadoDialog produto={null} open={false} onOpenChange={() => {}} />
+        </QueryClientProvider>
+      </MemoryRouter>,
     );
     expect(() =>
       rerender(
-        <QueryClientProvider client={qc}>
-          <EditarMontadoDialog produto={produto} open={true} onOpenChange={() => {}} />
-        </QueryClientProvider>,
+        <MemoryRouter>
+          <QueryClientProvider client={qc}>
+            <EditarMontadoDialog produto={produto} open={true} onOpenChange={() => {}} />
+          </QueryClientProvider>
+        </MemoryRouter>,
       ),
     ).not.toThrow();
   });

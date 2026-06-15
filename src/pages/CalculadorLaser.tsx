@@ -25,13 +25,13 @@ function normalize(t: string): string {
   return t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 }
 
-export default function CalculadorLaser() {
+export default function CalculadorLaser({ pecaIdInicial }: { pecaIdInicial?: string } = {}) {
   const queryClient = useQueryClient();
   const produtosQuery = useProdutosResolvidos();
   const chapasQuery = useQuery({ queryKey: ["config-chapas"], queryFn: listConfigChapas });
   const configQuery = useQuery({ queryKey: ["config"], queryFn: getConfig });
 
-  const [pecaId, setPecaId] = useState<string | null>(null);
+  const [pecaId, setPecaId] = useState<string | null>(pecaIdInicial ?? null);
   const [busca, setBusca] = useState("");
   const [espessura, setEspessura] = useState<number | null>(null);
   const [largura, setLargura] = useState("");
