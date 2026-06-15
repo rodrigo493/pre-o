@@ -19,6 +19,7 @@ import {
 import PriceBadge from "@/components/PriceBadge";
 import { createProdutoMestre, updateProdutoMestre } from "@/repositories/produtosMestreRepo";
 import { useProdutosResolvidos, type LinhaProduto } from "@/hooks/useProdutosResolvidos";
+import { GRUPO_MONTADO } from "@/lib/grupos";
 import { formatMargem, formatMoeda } from "@/lib/produtoFormat";
 import EditarMontadoDialog, {
   type ProdutoMontadoRow,
@@ -29,13 +30,9 @@ function errMsg(err: unknown): string {
   return err instanceof Error ? err.message : "erro desconhecido";
 }
 
-/** Grupo padrão dos produtos criados na aba Produto montado. */
-const GRUPO_MONTADO = "PRODUTO MONTADO";
-
 const montadoSchema = z.object({
   nome: z.string().trim().min(1, "Informe o nome do produto."),
   codigo: z.string().trim().optional(),
-  categoria: z.string().trim().optional(),
 });
 
 type MontadoForm = z.infer<typeof montadoSchema>;
@@ -57,19 +54,6 @@ export default function ProdutoMontado() {
     [produtosQuery.data],
   );
 
-  // Grupos já existentes no catálogo (para o dropdown de Categoria/Grupo).
-  // Garante "PRODUTO MONTADO" na lista mesmo que ainda não haja nenhum.
-  const grupos = useMemo(
-    () =>
-      Array.from(
-        new Set([
-          GRUPO_MONTADO,
-          ...((produtosQuery.data ?? []).map((l) => l.categoria).filter(Boolean) as string[]),
-        ]),
-      ).sort((a, b) => a.localeCompare(b, "pt-BR")),
-    [produtosQuery.data],
-  );
-
   const linhaParaRow = (l: LinhaProduto): ProdutoMontadoRow => ({
     id: l.id, nome: l.nome, codigo: l.codigo ?? null, categoria: l.categoria ?? null,
     tipo: "montado", custo_manual: l.custoManual ?? null, preco_manual: l.precoManual ?? null,
@@ -86,14 +70,14 @@ export default function ProdutoMontado() {
     formState: { errors, isSubmitting },
   } = useForm<MontadoForm>({
     resolver: zodResolver(montadoSchema),
-    defaultValues: { nome: "", codigo: "", categoria: GRUPO_MONTADO },
+    defaultValues: { nome: "", codigo: "" },
   });
 
   const onSubmit = handleSubmit(async (values) => {
     try {
       const codigo = values.codigo ? values.codigo.trim() : null;
-      // Produtos criados aqui caem no grupo "PRODUTO MONTADO" por padrão.
-      const categoria = values.categoria?.trim() || GRUPO_MONTADO;
+      // Todo produto montado aqui fica SEMPRE no grupo "PRODUTO MONTADO".
+      const categoria = GRUPO_MONTADO;
       // Find-or-create pelo código: se já existe no catálogo, reusa (vira montado) e abre a
       // composição — evita erro de código duplicado (23505).
       const existente = codigo
@@ -113,7 +97,7 @@ export default function ProdutoMontado() {
       }
       queryClient.invalidateQueries({ queryKey: ["produtos-resolvidos"] });
       queryClient.invalidateQueries({ queryKey: ["produtos-mestre"] });
-      reset({ nome: "", codigo: "", categoria: GRUPO_MONTADO });
+      reset({ nome: "", codigo: "" });
       setEditando(row);
       setDialogOpen(true);
     } catch (err) {
@@ -161,7 +145,7 @@ export default function ProdutoMontado() {
         </CardHeader>
         <CardContent>
           <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="nome">Nome *</Label>
                 <Input id="nome" placeholder="Ex.: Combo Studio Classic" {...register("nome")} />
@@ -173,16 +157,10 @@ export default function ProdutoMontado() {
                 <Label htmlFor="codigo">Código</Label>
                 <Input id="codigo" placeholder="Ex.: KIT.V5.130" {...register("codigo")} />
               </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="categoria">Categoria/Grupo</Label>
-                <Input id="categoria" list="grupos-list" placeholder="Escolha ou digite…" {...register("categoria")} />
-                <datalist id="grupos-list">
-                  {grupos.map((g) => (
-                    <option key={g} value={g} />
-                  ))}
-                </datalist>
-              </div>
             </div>
+            <p className="text-xs text-muted-foreground">
+              Grupo: <strong>{GRUPO_MONTADO}</strong> — todo produto montado aqui entra nesse grupo.
+            </p>
             <div>
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting ? "Criando…" : "Criar e montar composição"}

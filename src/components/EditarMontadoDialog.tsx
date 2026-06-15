@@ -25,6 +25,7 @@ import {
 } from "@/repositories/componentesMontadoRepo";
 import { parseComposicaoFile, agregarPorCodigo } from "@/lib/composicaoParser";
 import { useProdutosResolvidos } from "@/hooks/useProdutosResolvidos";
+import { GRUPO_MONTADO } from "@/lib/grupos";
 import { getConfig } from "@/repositories/configRepo";
 import { calculateSellingPrice, formatCurrency } from "@/lib/pricing";
 import type { Database } from "@/integrations/supabase/types";
@@ -70,7 +71,6 @@ export default function EditarMontadoDialog({
   const navigate = useNavigate();
   const [nome, setNome] = useState("");
   const [codigo, setCodigo] = useState("");
-  const [categoria, setCategoria] = useState("");
   const [preco, setPreco] = useState("");
   const [somaNota, setSomaNota] = useState(false);
   const [tempoCorte, setTempoCorte] = useState("");
@@ -90,7 +90,6 @@ export default function EditarMontadoDialog({
   useEffect(() => {
     setNome(produto?.nome ?? "");
     setCodigo(produto?.codigo ?? "");
-    setCategoria(produto?.categoria ?? "");
     setPreco(produto?.preco_manual != null ? String(produto.preco_manual) : "");
     setSomaNota(produto?.soma_nota ?? false);
     setTempoCorte(produto?.tempo_corte_min != null ? String(produto.tempo_corte_min) : "");
@@ -267,7 +266,7 @@ export default function EditarMontadoDialog({
       await updateProdutoMestre(produto.id, {
         nome: nomeLimpo,
         codigo: codigo.trim() === "" ? null : codigo.trim(),
-        categoria: categoria.trim() === "" ? null : categoria.trim(),
+        categoria: GRUPO_MONTADO, // montado fica sempre no grupo "PRODUTO MONTADO"
         preco_manual: precoNum, // null = usa o preço calculado pela composição
         soma_nota: somaNota,
         tempo_corte_min: tempoSalvar,
@@ -294,7 +293,7 @@ export default function EditarMontadoDialog({
         </DialogHeader>
 
         {/* Dados */}
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="m-nome">Nome</Label>
             <Input id="m-nome" value={nome} onChange={(e) => setNome(e.target.value)} disabled={busy} />
@@ -303,16 +302,10 @@ export default function EditarMontadoDialog({
             <Label htmlFor="m-codigo">Código</Label>
             <Input id="m-codigo" value={codigo} onChange={(e) => setCodigo(e.target.value)} disabled={busy} />
           </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="m-categoria">Categoria/Grupo</Label>
-            <Input
-              id="m-categoria"
-              value={categoria}
-              onChange={(e) => setCategoria(e.target.value)}
-              disabled={busy}
-            />
-          </div>
         </div>
+        <p className="text-xs text-muted-foreground">
+          Grupo: <strong>{GRUPO_MONTADO}</strong> — produtos montados ficam sempre neste grupo.
+        </p>
 
         {/* Composição */}
         <div className="mt-2 flex flex-col gap-3 border-t pt-4">
