@@ -61,10 +61,12 @@ function prefixoCodigo(codigo: string): string {
   return m ? m[0] : "";
 }
 
-/** Decide o tipo: fabricado (montado) por prefixo de código OU "Fabricado" no Ressuprimento. */
-function decidirTipo(codigo: string, ressupText: string): CatalogTipo {
+/**
+ * Decide o tipo SÓ pelo prefixo do código (US/LA/TB/MO/MOF = peça/conjunto montado).
+ * NÃO usa a coluna Ressuprimento (comprado/fabricado) — a pedido: separar pelo grupo.
+ */
+function decidirTipo(codigo: string): CatalogTipo {
   if (FABRICADO_PREFIXES.has(prefixoCodigo(codigo))) return "montado";
-  if (/fabricado/i.test(ressupText)) return "montado";
   return "comprado";
 }
 
@@ -248,8 +250,7 @@ export function parseCatalogWithDiag(pages: Array<Array<PDFTextItem>>): CatalogP
         const unidadeCells = cells
           .filter((c) => c.x >= descricaoEnd && c.x < anchors!.tipoX && isUnitLike(c.str))
           .sort((a, b) => a.x - b.x);
-        const ressupText = cells.map((c) => c.str).join(" ");
-        const tipo: CatalogTipo = decidirTipo(codigo, ressupText);
+        const tipo: CatalogTipo = decidirTipo(codigo);
 
         pending = {
           codigo,
@@ -343,7 +344,6 @@ export function parseCatalogFromSheetMatrix(matrix: unknown[][]): CatalogProduct
     return header.findIndex((h) => (h.includes("um") || h.includes("unidade")) && !h.includes("secund"));
   })();
   const iGrupo = header.findIndex((h) => h.includes("grupo"));
-  const iRessup = header.findIndex((h) => h.includes("ressup"));
   if (iCodigo < 0 || iDescricao < 0) return [];
 
   const cell = (row: unknown[], i: number): string => (i >= 0 ? String(row?.[i] ?? "").trim() : "");
@@ -361,7 +361,7 @@ export function parseCatalogFromSheetMatrix(matrix: unknown[][]): CatalogProduct
       nome,
       unidade: um ? normalizeUnit(um) : null,
       unidadeSecundaria: umSec ? normalizeUnit(umSec) : null,
-      tipo: decidirTipo(codigo, cell(row, iRessup)),
+      tipo: decidirTipo(codigo),
       categoria: limparCategoria(cell(row, iGrupo)) || null,
     });
   }
