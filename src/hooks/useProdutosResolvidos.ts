@@ -12,6 +12,7 @@ import {
   type ResolvedPrice,
 } from "@/lib/priceResolution";
 import { criarCustoDe, custoExtras, type ProdutoCusto } from "@/lib/custoComposto";
+import { GRUPO_MONTADO } from "@/lib/grupos";
 import { listConfigChapas } from "@/repositories/configChapasRepo";
 import { listPecasLaser } from "@/repositories/pecasLaserRepo";
 import { calcularCustoPecaLaser } from "@/lib/laserCost";
@@ -282,15 +283,20 @@ export function useProdutosResolvidos() {
             produto.custoComponentes = custoDe(m.id);
           }
         }
+        // Todo montado "de verdade" (com composição ou preço travado) aparece no
+        // grupo fixo "22 - PRODUTO MONTADO", independente do grupo no banco.
+        const temComposicao = (compPorMontado.get(m.id)?.length ?? 0) > 0;
+        const ehMontadoReal = m.tipo === "montado" && (temComposicao || m.preco_manual != null);
         return {
           ...produto,
+          categoria: ehMontadoReal ? GRUPO_MONTADO : produto.categoria,
           maisVendido: m.mais_vendido ?? false,
           temVinculo: (porMestre.get(m.id)?.length ?? 0) > 0,
           custoMaoDeObra,
           custoCorteLaser,
           maoDeObraPendente,
           custoNotaProprio: m.tipo === "montado" ? custoNotaPorId.get(m.id) ?? null : null,
-          temComposicao: (compPorMontado.get(m.id)?.length ?? 0) > 0,
+          temComposicao,
           resolvido: resolvePrice(produto, porMestre.get(m.id) ?? [], cfg, hoje),
         };
       });
