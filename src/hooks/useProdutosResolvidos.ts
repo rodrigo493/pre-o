@@ -18,7 +18,7 @@ import { calcularCustoPecaLaser } from "@/lib/laserCost";
 import { listConfigBitolas, listPecasUsinado, listPecasTubo } from "@/repositories/bitolasRepo";
 import { calcularCustoPecaUsinada } from "@/lib/usinadoCost";
 import { calcularCustoPecaTubo } from "@/lib/tuboCost";
-import { acharProdutoDaBitola } from "@/lib/bitolaMatch";
+import { acharProdutoDaBitola, acharProdutoChapa } from "@/lib/bitolaMatch";
 import { rkgCru } from "@/lib/rkgCru";
 import { calculateSellingPrice } from "@/lib/pricing";
 
@@ -102,8 +102,15 @@ export function useProdutosResolvidos() {
         for (const peca of pecasLaser) {
           const chapa = chapaPorEspessura.get(Number(peca.espessura));
           if (!chapa) continue;
-          // Chapa: produto configurado tem precedência sobre o código (cobre produto sem código).
-          const chapaId = chapa.produto_mestre_id ?? idPorCodigo.get(chapa.chapa_codigo.trim().toUpperCase());
+          // Chapa: produto configurado → senão pela MEDIDA (prefere o que tem custo).
+          // Conecta o vínculo mesmo em produto do fornecedor (CFF/CFQ) sem o código padrão.
+          const chapaId =
+            chapa.produto_mestre_id ??
+            acharProdutoChapa(
+              chapa.chapa_codigo,
+              mestres.map((mm) => ({ id: mm.id, codigo: mm.codigo, nome: mm.nome, comCusto: (custoCompradoPorId.get(mm.id) ?? 0) > 0 })),
+            ) ??
+            idPorCodigo.get(chapa.chapa_codigo.trim().toUpperCase());
           // Recupera o R$/kg (desfaz um fator × se houver) e multiplica pelo peso da config.
           // Robusto: funciona com a chapa em R$/kg OU já por unidade (fator × peso).
           const baseChapa = (chapaId ? custoCompradoPorId.get(chapaId) : null) ?? 0;

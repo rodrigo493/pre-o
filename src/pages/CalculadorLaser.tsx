@@ -11,6 +11,7 @@ import { getPecaLaser, upsertPecaLaser } from "@/repositories/pecasLaserRepo";
 import { getConfig } from "@/repositories/configRepo";
 import { calcularCustoPecaLaser } from "@/lib/laserCost";
 import { rkgCru } from "@/lib/rkgCru";
+import { acharProdutoChapa } from "@/lib/bitolaMatch";
 import { formatCurrency } from "@/lib/pricing";
 
 function errMsg(err: unknown): string {
@@ -80,17 +81,24 @@ export default function CalculadorLaser() {
       .slice(0, 40);
   }, [linhas, busca]);
 
+  // Acha o produto da chapa: id configurado → senão pela MEDIDA (prefere o que tem custo),
+  // assim o vínculo flui mesmo no produto do fornecedor (CFF/CFQ) sem o código padrão.
+  const prodDaChapa = (c: (typeof chapas)[number]) => {
+    if (c.produto_mestre_id) return linhas.find((l) => l.id === c.produto_mestre_id);
+    const id = acharProdutoChapa(
+      c.chapa_codigo,
+      linhas.map((l) => ({ id: l.id, codigo: l.codigo, nome: l.nome, comCusto: l.resolvido.custoBase != null })),
+    );
+    return id ? linhas.find((l) => l.id === id) : undefined;
+  };
+
   const chapa = chapas.find((c) => Number(c.espessura) === espessura) ?? null;
   // R$/kg cru da chapa (fonte única, desfaz qualquer fator) × peso da config = valor da chapa.
   const rkgChapa = useMemo(() => {
     if (!chapa) return 0;
-    const prod = chapa.produto_mestre_id
-      ? linhas.find((l) => l.id === chapa.produto_mestre_id)
-      : linhas.find(
-          (l) => (l.codigo ?? "").trim().toUpperCase() === chapa.chapa_codigo.trim().toUpperCase(),
-        );
+    const prod = prodDaChapa(chapa);
     return rkgCru(prod?.resolvido.custoBase ?? 0, prod?.fatorConversao ?? null, prod?.conversaoOp ?? null);
-  }, [chapa, linhas]);
+  }, [chapa, linhas]); // eslint-disable-line react-hooks/exhaustive-deps
   const valorChapaUnit = rkgChapa * (chapa ? Number(chapa.peso_kg) : 0);
 
   const calc = useMemo(() => {
@@ -253,9 +261,7 @@ export default function CalculadorLaser() {
           <CardContent className="flex flex-col gap-4">
             {chapas.map((c) => {
               const esp = Number(c.espessura);
-              const atual = c.produto_mestre_id
-                ? linhas.find((l) => l.id === c.produto_mestre_id)
-                : linhas.find((l) => (l.codigo ?? "").trim().toUpperCase() === c.chapa_codigo.trim().toUpperCase());
+              const atual = prodDaChapa(c);
               const baseAtual = atual?.resolvido.custoBase ?? null;
               // Valor da chapa por unidade = R$/kg cru × peso (desfaz qualquer fator).
               const valUn =

@@ -17,8 +17,32 @@ const PREFIXOS: Record<string, string[]> = {
 };
 
 /** Números relevantes de um texto: "12,70MM" → [12.7]; "RED.76.2X2" → [76.2, 2]. */
-function numeros(s: string): number[] {
+export function numeros(s: string): number[] {
   return (s.replace(/,/g, ".").match(/\d+(?:\.\d+)?/g) ?? []).map(Number).filter((n) => n > 0);
+}
+
+export interface ProdutoChapaLike {
+  id: string;
+  codigo: string | null;
+  nome?: string | null;
+  /** Tem custo resolvido (nota vinculada). Quando há vários, prefere o que tem custo. */
+  comCusto?: boolean;
+}
+
+/**
+ * Acha o produto da chapa pela MEDIDA (ex.: 1200×3000×1,2), independente do código.
+ * Assim o vínculo da nota flui mesmo que a chapa esteja num produto com nome do
+ * fornecedor (CFF/CFQ…) em vez do código padrão (CH.LISA…). Prefere o que tem custo.
+ */
+export function acharProdutoChapa(chapaCodigo: string, produtos: ProdutoChapaLike[]): string | null {
+  const alvo = numeros(chapaCodigo);
+  if (alvo.length === 0) return null;
+  const candidatos = produtos.filter((p) => {
+    const nums = numeros(`${p.codigo ?? ""} ${p.nome ?? ""}`);
+    return alvo.every((a) => nums.some((n) => Math.abs(n - a) < 0.05));
+  });
+  if (candidatos.length === 0) return null;
+  return (candidatos.find((p) => p.comCusto) ?? candidatos[0]).id;
 }
 
 function naFamilia(codigo: string, tipo: string): boolean {
