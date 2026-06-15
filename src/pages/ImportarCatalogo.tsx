@@ -28,6 +28,7 @@ interface FileReport {
   total: number;
   anchorsAchados: boolean;
   erro?: string;
+  amostra?: string[]; // primeiras linhas lidas, p/ diagnóstico quando der 0
 }
 
 function normalize(s: string): string {
@@ -85,6 +86,7 @@ export default function ImportarCatalogo() {
           porPagina: diag.porPagina,
           total: diag.produtos.length,
           anchorsAchados: diag.anchorsAchados,
+          amostra: diag.produtos.length === 0 ? diag.debug.linhas : undefined,
         });
         // Dump no console p/ diagnóstico fino quando algo não vier completo.
         if (diag.produtos.length === 0 || !diag.anchorsAchados) {
@@ -219,16 +221,23 @@ export default function ImportarCatalogo() {
               {relatorio.map((r) => {
                 const ok = r.anchorsAchados && !r.erro && r.porPagina.every((n) => n > 0);
                 return (
-                  <div key={r.nome} className="flex items-center gap-2">
-                    <span className={ok ? "text-emerald-600" : "text-amber-600"}>{ok ? "✓" : "⚠"}</span>
-                    <span className="font-medium">{r.nome}</span>
-                    <span className="text-muted-foreground">
-                      {r.erro
-                        ? `erro: ${r.erro}`
-                        : !r.anchorsAchados
-                          ? "cabeçalho não reconhecido — 0 produtos"
-                          : `${r.total} produtos · ${r.paginas} pág. · por página: [${r.porPagina.join(", ")}]`}
-                    </span>
+                  <div key={r.nome} className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                      <span className={ok ? "text-emerald-600" : "text-amber-600"}>{ok ? "✓" : "⚠"}</span>
+                      <span className="font-medium">{r.nome}</span>
+                      <span className="text-muted-foreground">
+                        {r.erro
+                          ? `erro: ${r.erro}`
+                          : !r.anchorsAchados
+                            ? "cabeçalho não reconhecido — 0 produtos"
+                            : `${r.total} produtos · ${r.paginas} pág. · por página: [${r.porPagina.join(", ")}]`}
+                      </span>
+                    </div>
+                    {r.amostra && r.amostra.length > 0 && (
+                      <pre className="ml-6 max-w-full overflow-x-auto rounded bg-muted/50 p-2 text-[10px] leading-tight text-muted-foreground">
+                        {r.amostra.join("\n")}
+                      </pre>
+                    )}
                   </div>
                 );
               })}
