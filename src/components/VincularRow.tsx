@@ -20,8 +20,6 @@ export interface VincularRowProps {
   busy: boolean;
   /** Vincula a um mestre existente. lote = aplicar a todos com o mesmo cprod. */
   onVincularExistente: (item: ItemRow, mestreId: string, lote: boolean, fator: number | null, op: ConversaoOp) => void;
-  /** Cria um mestre novo a partir da descrição e vincula. */
-  onCriarMestre: (item: ItemRow, nome: string, lote: boolean, fator: number | null, op: ConversaoOp) => void;
 }
 
 function normalize(text: string): string {
@@ -37,12 +35,9 @@ export default function VincularRow({
   outrosMesmoCprod,
   busy,
   onVincularExistente,
-  onCriarMestre,
 }: VincularRowProps) {
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string>("");
-  const [criando, setCriando] = useState(false);
-  const [nomeNovo, setNomeNovo] = useState(item.descricao);
   const [lote, setLote] = useState(true);
   const [fator, setFator] = useState("");
   const [op, setOp] = useState<ConversaoOp>("dividir");
@@ -104,30 +99,7 @@ export default function VincularRow({
       <TableCell className="text-muted-foreground">{item.unidade ?? "—"}</TableCell>
       <TableCell>
         <div className="flex flex-col gap-2">
-          {criando ? (
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <Input
-                value={nomeNovo}
-                onChange={(e) => setNomeNovo(e.target.value)}
-                placeholder="Nome do produto mestre"
-                className="sm:w-64"
-                disabled={busy}
-              />
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  disabled={busy || nomeNovo.trim().length === 0}
-                  onClick={() => onCriarMestre(item, nomeNovo.trim(), aplicarLote, fatorNum, op)}
-                >
-                  Criar e vincular
-                </Button>
-                <Button size="sm" variant="ghost" disabled={busy} onClick={() => setCriando(false)}>
-                  Cancelar
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2">
               {sugestao && sugestao.id !== selectedId && (
                 <button
                   type="button"
@@ -213,9 +185,6 @@ export default function VincularRow({
                 >
                   Vincular
                 </Button>
-                <Button size="sm" variant="outline" disabled={busy} onClick={() => setCriando(true)}>
-                  Criar mestre
-                </Button>
               </div>
 
               {unidadeDivergente && (
@@ -225,7 +194,6 @@ export default function VincularRow({
                 </p>
               )}
             </div>
-          )}
 
           {outrosMesmoCprod > 0 && (
             <label className="flex items-center gap-2 text-xs text-muted-foreground">

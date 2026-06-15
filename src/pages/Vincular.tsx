@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/table";
 import VincularRow, { type ConversaoOp } from "@/components/VincularRow";
 import { listItensPendentes, vincularItem } from "@/repositories/itensNotaRepo";
-import { listProdutosMestre, createProdutoMestre, updateProdutoMestre } from "@/repositories/produtosMestreRepo";
+import { listProdutosMestre, updateProdutoMestre } from "@/repositories/produtosMestreRepo";
 import { upsertVinculo } from "@/repositories/vinculosRepo";
 import {
   pendentesComMesmoCprod,
@@ -239,24 +239,6 @@ export default function Vincular() {
     }
   };
 
-  const handleCriarMestre = async (
-    item: ItemRow,
-    nome: string,
-    lote: boolean,
-    fator: number | null,
-    op: ConversaoOp,
-  ) => {
-    setBusyId(item.id);
-    try {
-      const mestre = await createProdutoMestre({ nome, tipo: "comprado" });
-      await linkToMestre(item, mestre.id, lote, fator, op);
-    } catch (err) {
-      toast.error(`Falha ao criar mestre: ${errMsg(err)}`);
-    } finally {
-      setBusyId(null);
-    }
-  };
-
   const loading = pendentesQuery.isLoading || mestresQuery.isLoading;
 
   return (
@@ -400,7 +382,6 @@ export default function Vincular() {
                     outrosMesmoCprod={pendentesComMesmoCprod(item, pendentes).length}
                     busy={busyId === item.id}
                     onVincularExistente={handleVincularExistente}
-                    onCriarMestre={handleCriarMestre}
                   />
                 ))}
               </TableBody>

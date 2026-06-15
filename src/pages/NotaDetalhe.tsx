@@ -19,7 +19,7 @@ import {
   listItensPorNota,
   vincularItensPorCprod,
 } from "@/repositories/itensNotaRepo";
-import { listProdutosMestre, createProdutoMestre, updateProdutoMestre } from "@/repositories/produtosMestreRepo";
+import { listProdutosMestre, updateProdutoMestre } from "@/repositories/produtosMestreRepo";
 import { upsertVinculo } from "@/repositories/vinculosRepo";
 import { formatCurrency } from "@/lib/pricing";
 import type { Database } from "@/integrations/supabase/types";
@@ -88,22 +88,6 @@ export default function NotaDetalhe() {
     } catch (err) {
       toast.error(`Falha ao vincular: ${errMsg(err)}`);
     } finally {
-      setBusyId(null);
-    }
-  };
-
-  const criarEVincular = async (
-    item: ItemRow,
-    nome: string,
-    fator: number | null,
-    op: ConversaoOp,
-  ) => {
-    setBusyId(item.id);
-    try {
-      const mestre = await createProdutoMestre({ nome, tipo: "comprado" });
-      await vincular(item, mestre.id, fator, op);
-    } catch (err) {
-      toast.error(`Falha ao criar mestre: ${errMsg(err)}`);
       setBusyId(null);
     }
   };
@@ -191,7 +175,6 @@ export default function NotaDetalhe() {
                               outrosMesmoCprod={0}
                               busy={busyId === item.id}
                               onVincularExistente={(it, mestreId, _lote, fator, op) => void vincular(it, mestreId, fator, op)}
-                              onCriarMestre={(it, nome, _lote, fator, op) => void criarEVincular(it, nome, fator, op)}
                             />
                           );
                         }
