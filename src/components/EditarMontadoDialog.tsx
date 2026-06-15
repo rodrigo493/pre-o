@@ -166,10 +166,18 @@ export default function EditarMontadoDialog({
     queryClient.invalidateQueries({ queryKey: ["produtos-mestre"] });
   };
 
+  // Montar a composição já joga o produto pro grupo "22 - PRODUTO MONTADO".
+  const garantirGrupoMontado = async () => {
+    if (produto.categoria !== GRUPO_MONTADO) {
+      await updateProdutoMestre(produto.id, { categoria: GRUPO_MONTADO });
+    }
+  };
+
   const adicionar = async (componenteId: string) => {
     setBusy(true);
     try {
       await upsertComponente(produto.id, componenteId, 1);
+      await garantirGrupoMontado();
       setQuery("");
       invalidate();
     } catch (err) {
@@ -227,6 +235,7 @@ export default function EditarMontadoDialog({
 
       await clearComponentes(produto.id);
       if (encontrados.length > 0) await insertComponentes(produto.id, encontrados);
+      await garantirGrupoMontado();
       invalidate();
 
       if (naoEncontrados.length > 0) {
