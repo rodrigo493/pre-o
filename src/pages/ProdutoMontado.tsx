@@ -29,6 +29,9 @@ function errMsg(err: unknown): string {
   return err instanceof Error ? err.message : "erro desconhecido";
 }
 
+/** Grupo padrão dos produtos criados na aba Produto montado. */
+const GRUPO_MONTADO = "PRODUTO MONTADO";
+
 const montadoSchema = z.object({
   nome: z.string().trim().min(1, "Informe o nome do produto."),
   codigo: z.string().trim().optional(),
@@ -55,10 +58,14 @@ export default function ProdutoMontado() {
   );
 
   // Grupos já existentes no catálogo (para o dropdown de Categoria/Grupo).
+  // Garante "PRODUTO MONTADO" na lista mesmo que ainda não haja nenhum.
   const grupos = useMemo(
     () =>
       Array.from(
-        new Set((produtosQuery.data ?? []).map((l) => l.categoria).filter(Boolean) as string[]),
+        new Set([
+          GRUPO_MONTADO,
+          ...((produtosQuery.data ?? []).map((l) => l.categoria).filter(Boolean) as string[]),
+        ]),
       ).sort((a, b) => a.localeCompare(b, "pt-BR")),
     [produtosQuery.data],
   );
@@ -79,13 +86,14 @@ export default function ProdutoMontado() {
     formState: { errors, isSubmitting },
   } = useForm<MontadoForm>({
     resolver: zodResolver(montadoSchema),
-    defaultValues: { nome: "", codigo: "", categoria: "" },
+    defaultValues: { nome: "", codigo: "", categoria: GRUPO_MONTADO },
   });
 
   const onSubmit = handleSubmit(async (values) => {
     try {
       const codigo = values.codigo ? values.codigo.trim() : null;
-      const categoria = values.categoria ? values.categoria.trim() : null;
+      // Produtos criados aqui caem no grupo "PRODUTO MONTADO" por padrão.
+      const categoria = values.categoria?.trim() || GRUPO_MONTADO;
       // Find-or-create pelo código: se já existe no catálogo, reusa (vira montado) e abre a
       // composição — evita erro de código duplicado (23505).
       const existente = codigo
@@ -105,7 +113,7 @@ export default function ProdutoMontado() {
       }
       queryClient.invalidateQueries({ queryKey: ["produtos-resolvidos"] });
       queryClient.invalidateQueries({ queryKey: ["produtos-mestre"] });
-      reset({ nome: "", codigo: "", categoria: "" });
+      reset({ nome: "", codigo: "", categoria: GRUPO_MONTADO });
       setEditando(row);
       setDialogOpen(true);
     } catch (err) {

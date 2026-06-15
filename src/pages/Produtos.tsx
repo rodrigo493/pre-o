@@ -31,6 +31,7 @@ export default function Produtos() {
   const [busca, setBusca] = useState("");
   const [grupo, setGrupo] = useState("");
   const [soVinculados, setSoVinculados] = useState(false);
+  const [soComPreco, setSoComPreco] = useState(true);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [editando, setEditando] = useState<LinhaProduto | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -39,19 +40,22 @@ export default function Produtos() {
 
   const linhas = produtosQuery.data ?? [];
 
-  const comPreco = useMemo(() => linhas.filter((l) => l.resolvido.precoVenda != null), [linhas]);
+  const base = useMemo(
+    () => (soComPreco ? linhas.filter((l) => l.resolvido.precoVenda != null) : linhas),
+    [linhas, soComPreco],
+  );
 
   const grupos = useMemo(
     () =>
-      Array.from(new Set(comPreco.map((l) => l.categoria).filter(Boolean) as string[])).sort(
+      Array.from(new Set(base.map((l) => l.categoria).filter(Boolean) as string[])).sort(
         (a, b) => a.localeCompare(b, "pt-BR"),
       ),
-    [comPreco],
+    [base],
   );
 
   const filtradas = useMemo(() => {
     const q = busca.trim().toLowerCase();
-    return comPreco.filter((l) => {
+    return base.filter((l) => {
       const matchBusca =
         !q ||
         l.nome.toLowerCase().includes(q) ||
@@ -61,9 +65,9 @@ export default function Produtos() {
       const matchVinculo = !soVinculados || l.temVinculo;
       return matchBusca && matchGrupo && matchVinculo;
     });
-  }, [comPreco, busca, grupo, soVinculados]);
+  }, [base, busca, grupo, soVinculados]);
 
-  const totalVinculados = useMemo(() => comPreco.filter((l) => l.temVinculo).length, [comPreco]);
+  const totalVinculados = useMemo(() => base.filter((l) => l.temVinculo).length, [base]);
 
   const toggleMaisVendido = async (linha: LinhaProduto) => {
     setTogglingId(linha.id);
@@ -109,8 +113,8 @@ export default function Produtos() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Produtos</h1>
             <p className="mt-0.5 text-sm text-muted-foreground">
-              Só produtos <strong>com preço definido</strong> (comprados com custo, montados e peças
-              calculadas). Filtre por grupo e busque por nome ou código.
+              Filtre por grupo e busque por nome ou código. Por padrão mostra só os{" "}
+              <strong>com preço definido</strong> — desmarque para ver todos os grupos.
             </p>
           </div>
         </div>
@@ -170,6 +174,15 @@ export default function Produtos() {
                 </option>
               ))}
             </select>
+            <label className="flex h-10 cursor-pointer items-center gap-2 rounded-md border border-input bg-background px-3 text-sm">
+              <input
+                type="checkbox"
+                checked={soComPreco}
+                onChange={(e) => setSoComPreco(e.target.checked)}
+                className="h-4 w-4"
+              />
+              Só com preço definido
+            </label>
             <label className="flex h-10 cursor-pointer items-center gap-2 rounded-md border border-input bg-background px-3 text-sm">
               <input
                 type="checkbox"
