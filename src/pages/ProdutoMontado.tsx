@@ -17,7 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import PriceBadge from "@/components/PriceBadge";
-import { createProdutoMestre } from "@/repositories/produtosMestreRepo";
+import { createProdutoMestre, updateProdutoMestre } from "@/repositories/produtosMestreRepo";
 import { useProdutosResolvidos, type LinhaProduto } from "@/hooks/useProdutosResolvidos";
 import { formatMargem, formatMoeda } from "@/lib/produtoFormat";
 import EditarMontadoDialog, {
@@ -49,6 +49,24 @@ export default function ProdutoMontado() {
     [produtosQuery.data],
   );
 
+  // Grupos já existentes no catálogo (para o dropdown de Categoria/Grupo).
+  const grupos = useMemo(
+    () =>
+      Array.from(
+        new Set((produtosQuery.data ?? []).map((l) => l.categoria).filter(Boolean) as string[]),
+      ).sort((a, b) => a.localeCompare(b, "pt-BR")),
+    [produtosQuery.data],
+  );
+
+  const linhaParaRow = (l: LinhaProduto): ProdutoMontadoRow => ({
+    id: l.id, nome: l.nome, codigo: l.codigo ?? null, categoria: l.categoria ?? null,
+    tipo: "montado", custo_manual: l.custoManual ?? null, preco_manual: l.precoManual ?? null,
+    unidade: l.unidade ?? null, unidade_secundaria: l.unidadeSecundaria ?? null,
+    fator_conversao: l.fatorConversao ?? null, conversao_op: l.conversaoOp ?? null,
+    soma_nota: l.somaNota ?? false, tempo_corte_min: l.tempoCorteMin ?? null,
+    mais_vendido: l.maisVendido, created_at: "",
+  });
+
   const {
     register,
     handleSubmit,
@@ -61,18 +79,29 @@ export default function ProdutoMontado() {
 
   const onSubmit = handleSubmit(async (values) => {
     try {
-      const novo = await createProdutoMestre({
-        nome: values.nome,
-        codigo: values.codigo ? values.codigo : null,
-        categoria: values.categoria ? values.categoria : null,
-        tipo: "montado",
-      });
+      const codigo = values.codigo ? values.codigo.trim() : null;
+      const categoria = values.categoria ? values.categoria.trim() : null;
+      // Find-or-create pelo código: se já existe no catálogo, reusa (vira montado) e abre a
+      // composição — evita erro de código duplicado (23505).
+      const existente = codigo
+        ? (produtosQuery.data ?? []).find(
+            (l) => (l.codigo ?? "").trim().toUpperCase() === codigo.toUpperCase(),
+          )
+        : undefined;
+
+      let row: ProdutoMontadoRow;
+      if (existente) {
+        await updateProdutoMestre(existente.id, { nome: values.nome, categoria, tipo: "montado" });
+        row = { ...linhaParaRow(existente), nome: values.nome, categoria };
+        toast.success(`"${values.nome}" já existia no catálogo — abrindo a composição.`);
+      } else {
+        row = await createProdutoMestre({ nome: values.nome, codigo, categoria, tipo: "montado" });
+        toast.success(`Produto montado "${values.nome}" criado. Adicione os componentes.`);
+      }
       queryClient.invalidateQueries({ queryKey: ["produtos-resolvidos"] });
       queryClient.invalidateQueries({ queryKey: ["produtos-mestre"] });
-      toast.success(`Produto montado "${values.nome}" criado. Adicione os componentes.`);
       reset({ nome: "", codigo: "", categoria: "" });
-      // Abre direto a composição do novo produto.
-      setEditando(novo);
+      setEditando(row);
       setDialogOpen(true);
     } catch (err) {
       toast.error(`Falha ao criar produto: ${errMsg(err)}`);
@@ -133,7 +162,12 @@ export default function ProdutoMontado() {
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="categoria">Categoria/Grupo</Label>
-                <Input id="categoria" placeholder="Ex.: 01 - PRODUTO ACABADO" {...register("categoria")} />
+                <Input id="categoria" list="grupos-list" placeholder="Escolha ou digite…" {...register("categoria")} />
+                <datalist id="grupos-list">
+                  {grupos.map((g) => (
+                    <option key={g} value={g} />
+                  ))}
+                </datalist>
               </div>
             </div>
             <div>
