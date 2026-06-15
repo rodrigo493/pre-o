@@ -314,47 +314,68 @@ function normKey(k: string): string {
   return stripAccents(k).toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
-/** Mapeia linhas do relatório Nomus (CSV/Excel) → CatalogProduct, por nome de coluna. */
-export function parseCatalogFromSheetRows(
-  rows: Array<Record<string, unknown>>,
-): CatalogProduct[] {
-  if (rows.length === 0) return [];
-  const keys = Object.keys(rows[0]);
-  const find = (pred: (nk: string) => boolean): string | null =>
-    keys.find((k) => pred(normKey(k))) ?? null;
+/**
+ * Mapeia uma matriz (linhas × colunas) do relatório Nomus → CatalogProduct.
+ * Acha a LINHA DE CABEÇALHO dinamicamente (a 1ª que tem "Código" e "Descrição"),
+ * ignorando título "Produtos | Nomus", filtros e linhas em branco no topo.
+ */
+export function parseCatalogFromSheetMatrix(matrix: unknown[][]): CatalogProduct[] {
+  let headerIdx = -1;
+  for (let i = 0; i < matrix.length; i++) {
+    const cells = (matrix[i] ?? []).map((c) => normKey(String(c ?? "")));
+    if (cells.some((c) => c.includes("codigo")) && cells.some((c) => c.includes("descri"))) {
+      headerIdx = i;
+      break;
+    }
+  }
+  if (headerIdx < 0) return [];
 
-  const kCodigo = find((nk) => nk.includes("codigo"));
-  const kDescricao = find((nk) => nk.includes("descri"));
-  const kUmSec = find((nk) => nk.includes("um") && nk.includes("secund")) ??
-    find((nk) => nk.includes("secund"));
-  const kUm =
-    find((nk) => nk === "um" && true) ??
-    find((nk) => (nk.includes("um") || nk.includes("unidade")) && !nk.includes("secund"));
-  const kGrupo = find((nk) => nk.includes("grupo"));
-  const kRessup = find((nk) => nk.includes("ressup"));
+  const header = (matrix[headerIdx] ?? []).map((c) => normKey(String(c ?? "")));
+  const iCodigo = header.findIndex((h) => h.includes("codigo"));
+  const iDescricao = header.findIndex((h) => h.includes("descri"));
+  const iUmSec = (() => {
+    const a = header.findIndex((h) => h.includes("um") && h.includes("secund"));
+    return a >= 0 ? a : header.findIndex((h) => h.includes("secund"));
+  })();
+  const iUm = (() => {
+    const exato = header.findIndex((h) => h === "um");
+    if (exato >= 0) return exato;
+    return header.findIndex((h) => (h.includes("um") || h.includes("unidade")) && !h.includes("secund"));
+  })();
+  const iGrupo = header.findIndex((h) => h.includes("grupo"));
+  const iRessup = header.findIndex((h) => h.includes("ressup"));
+  if (iCodigo < 0 || iDescricao < 0) return [];
 
-  if (!kCodigo || !kDescricao) return [];
-
-  const get = (row: Record<string, unknown>, key: string | null): string =>
-    key ? String(row[key] ?? "").trim() : "";
+  const cell = (row: unknown[], i: number): string => (i >= 0 ? String(row?.[i] ?? "").trim() : "");
 
   const out: CatalogProduct[] = [];
-  for (const row of rows) {
-    const codigo = get(row, kCodigo);
-    const nome = get(row, kDescricao).replace(/\s+/g, " ").trim();
+  for (let i = headerIdx + 1; i < matrix.length; i++) {
+    const row = matrix[i] ?? [];
+    const codigo = cell(row, iCodigo);
+    const nome = cell(row, iDescricao).replace(/\s+/g, " ").trim();
     if (!codigo || !nome) continue;
-    const um = get(row, kUm);
-    const umSec = get(row, kUmSec);
+    const um = cell(row, iUm);
+    const umSec = cell(row, iUmSec);
     out.push({
       codigo,
       nome,
       unidade: um ? normalizeUnit(um) : null,
       unidadeSecundaria: umSec ? normalizeUnit(umSec) : null,
-      tipo: decidirTipo(codigo, get(row, kRessup)),
-      categoria: limparCategoria(get(row, kGrupo)) || null,
+      tipo: decidirTipo(codigo, cell(row, iRessup)),
+      categoria: limparCategoria(cell(row, iGrupo)) || null,
     });
   }
   return out;
+}
+
+/** Versão por objetos (chaves = cabeçalho). Converte para matriz e delega. */
+export function parseCatalogFromSheetRows(
+  rows: Array<Record<string, unknown>>,
+): CatalogProduct[] {
+  if (rows.length === 0) return [];
+  const keys = Object.keys(rows[0]);
+  const matrix: unknown[][] = [keys, ...rows.map((r) => keys.map((k) => r[k]))];
+  return parseCatalogFromSheetMatrix(matrix);
 }
 
 /** Lê CSV/Excel do catálogo Nomus e devolve produtos + diagnóstico. */
@@ -362,21 +383,22 @@ export async function parseCatalogSheetFileWithDiag(file: File): Promise<Catalog
   const buffer = await readFileAsArrayBuffer(file);
   const wb = XLSX.read(buffer, { type: "array" });
   const sheet = wb.Sheets[wb.SheetNames[0]];
-  const rows = sheet
-    ? XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" })
+  // header:1 → matriz de linhas (não usa a 1ª linha como cabeçalho).
+  const matrix = sheet
+    ? XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: "", blankrows: false })
     : [];
-  const produtos = parseCatalogFromSheetRows(rows);
+  const produtos = parseCatalogFromSheetMatrix(matrix);
   const debug: CatalogDebug = {
     anchors: null,
     codigoEnd: null,
     descricaoEnd: null,
-    linhas: rows.length > 0 ? [Object.keys(rows[0]).join(" | ")] : ["(planilha vazia)"],
+    linhas: matrix.slice(0, 6).map((r) => (r ?? []).map((c) => String(c ?? "")).join(" | ")),
   };
   return {
     produtos,
     paginas: 1,
     porPagina: [produtos.length],
-    anchorsAchados: rows.length === 0 ? true : produtos.length > 0,
+    anchorsAchados: matrix.length === 0 ? true : produtos.length > 0,
     debug,
   };
 }

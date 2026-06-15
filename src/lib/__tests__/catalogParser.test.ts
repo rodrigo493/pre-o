@@ -309,6 +309,21 @@ describe("parseCatalogFromSheetRows (CSV/Excel)", () => {
     expect(result).toHaveLength(1);
     expect(result[0].codigo).toBe("OK.1");
   });
+
+  it("acha o cabeçalho mesmo com título 'Produtos | Nomus' e linhas em branco no topo (matriz)", async () => {
+    const { parseCatalogFromSheetMatrix } = await import("@/lib/catalogParser");
+    const matrix: unknown[][] = [
+      ["Produtos | Nomus"],
+      [],
+      ["Código do produto", "Descrição", "U.M.", "U.M. Secundária", "Tipo de produto", "Grupo de produto", "Ressuprimento"],
+      ["US.RF.128", "BOTÃO MOLAS", "PEÇA", "", "Matéria prima", "04 - USINADOS", "Comprado"],
+      ["CH.LISA.2,0", "CHAPA LISA 2,0MM", "UNIDADE", "QUILOGRAMA", "Matéria prima", "34 - CHAPA", "Comprado"],
+    ];
+    const result = parseCatalogFromSheetMatrix(matrix);
+    expect(result).toHaveLength(2);
+    expect(result[0]).toMatchObject({ codigo: "US.RF.128", nome: "BOTÃO MOLAS", tipo: "montado", categoria: "04 - USINADOS" });
+    expect(result[1]).toMatchObject({ codigo: "CH.LISA.2,0", categoria: "34 - CHAPA", unidadeSecundaria: "QUILOGRAMA" });
+  });
 });
 
 describe("dedupeCatalog", () => {
