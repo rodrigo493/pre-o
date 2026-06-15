@@ -39,17 +39,19 @@ export default function Produtos() {
 
   const linhas = produtosQuery.data ?? [];
 
+  const comPreco = useMemo(() => linhas.filter((l) => l.resolvido.precoVenda != null), [linhas]);
+
   const grupos = useMemo(
     () =>
-      Array.from(new Set(linhas.map((l) => l.categoria).filter(Boolean) as string[])).sort(
+      Array.from(new Set(comPreco.map((l) => l.categoria).filter(Boolean) as string[])).sort(
         (a, b) => a.localeCompare(b, "pt-BR"),
       ),
-    [linhas],
+    [comPreco],
   );
 
   const filtradas = useMemo(() => {
     const q = busca.trim().toLowerCase();
-    return linhas.filter((l) => {
+    return comPreco.filter((l) => {
       const matchBusca =
         !q ||
         l.nome.toLowerCase().includes(q) ||
@@ -59,9 +61,9 @@ export default function Produtos() {
       const matchVinculo = !soVinculados || l.temVinculo;
       return matchBusca && matchGrupo && matchVinculo;
     });
-  }, [linhas, busca, grupo, soVinculados]);
+  }, [comPreco, busca, grupo, soVinculados]);
 
-  const totalVinculados = useMemo(() => linhas.filter((l) => l.temVinculo).length, [linhas]);
+  const totalVinculados = useMemo(() => comPreco.filter((l) => l.temVinculo).length, [comPreco]);
 
   const toggleMaisVendido = async (linha: LinhaProduto) => {
     setTogglingId(linha.id);
@@ -107,8 +109,8 @@ export default function Produtos() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Produtos</h1>
             <p className="mt-0.5 text-sm text-muted-foreground">
-              Preços resolvidos a partir do maior custo dos últimos 8 meses (comprados)
-              ou do preço manual (montados / travados).
+              Só produtos <strong>com preço definido</strong> (comprados com custo, montados e peças
+              calculadas). Filtre por grupo e busque por nome ou código.
             </p>
           </div>
         </div>

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -15,6 +16,10 @@ import ImportDropzone from "@/components/ImportDropzone";
 import { parseCatalogFile, dedupeCatalog, type CatalogProduct } from "@/lib/catalogParser";
 import { extractPositionedTextFromPDF, readFileAsArrayBuffer } from "@/lib/parsers";
 import { listProdutosMestre, upsertCatalogByCodigo } from "@/repositories/produtosMestreRepo";
+
+function normalize(s: string): string {
+  return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+}
 
 function errMsg(err: unknown): string {
   if (err instanceof Error) return err.message;
@@ -121,6 +126,32 @@ export default function ImportarCatalogo() {
 
   const amostra = produtos.slice(0, 50);
 
+  // Navegador do catálogo: todos os produtos salvos, agrupados por grupo, com busca.
+  const todosMestres = mestresQuery.data ?? [];
+  const [catBusca, setCatBusca] = useState("");
+  const [abertos, setAbertos] = useState<Set<string>>(new Set());
+  const catQ = normalize(catBusca.trim());
+  const catFiltrados = catQ
+    ? todosMestres.filter((m) => normalize(`${m.codigo ?? ""} ${m.nome} ${m.categoria ?? ""}`).includes(catQ))
+    : todosMestres;
+  const porGrupo = useMemo(() => {
+    const map = new Map<string, typeof todosMestres>();
+    for (const m of catFiltrados) {
+      const g = m.categoria ?? "— sem grupo —";
+      const arr = map.get(g) ?? [];
+      arr.push(m);
+      map.set(g, arr);
+    }
+    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0], "pt-BR"));
+  }, [catFiltrados]);
+  const toggleGrupo = (g: string) =>
+    setAbertos((prev) => {
+      const next = new Set(prev);
+      if (next.has(g)) next.delete(g);
+      else next.add(g);
+      return next;
+    });
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -205,6 +236,62 @@ export default function ImportarCatalogo() {
           </CardContent>
         </Card>
       )}
+
+      {/* Catálogo salvo: todos os produtos, por grupo */}
+      <Card className="rounded-2xl shadow-sm">
+        <CardHeader className="gap-3">
+          <CardTitle className="text-base font-semibold">
+            Catálogo{!mestresQuery.isLoading ? ` (${todosMestres.length} produtos · ${porGrupo.length} grupos)` : ""}
+          </CardTitle>
+          <Input
+            value={catBusca}
+            onChange={(e) => setCatBusca(e.target.value)}
+            placeholder="Buscar no catálogo por código, descrição ou grupo…"
+            className="max-w-md"
+          />
+        </CardHeader>
+        <CardContent>
+          {mestresQuery.isLoading ? (
+            <p className="text-sm text-muted-foreground">Carregando…</p>
+          ) : porGrupo.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhum produto encontrado.</p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {porGrupo.map(([grupo, itens]) => {
+                const aberto = abertos.has(grupo) || catQ.length > 0;
+                return (
+                  <div key={grupo} className="overflow-hidden rounded-lg border">
+                    <button
+                      type="button"
+                      onClick={() => toggleGrupo(grupo)}
+                      className="flex w-full items-center justify-between bg-muted/40 px-3 py-2 text-left text-sm font-medium hover:bg-muted/60"
+                    >
+                      <span>{grupo}</span>
+                      <span className="text-xs text-muted-foreground">{itens.length} {aberto ? "▲" : "▼"}</span>
+                    </button>
+                    {aberto && (
+                      <table className="w-full text-sm">
+                        <tbody>
+                          {itens
+                            .slice()
+                            .sort((a, b) => (a.codigo ?? "").localeCompare(b.codigo ?? "", "pt-BR"))
+                            .map((m) => (
+                              <tr key={m.id} className="border-t">
+                                <td className="px-3 py-1.5 font-mono text-xs text-muted-foreground w-48">{m.codigo ?? "—"}</td>
+                                <td className="px-3 py-1.5">{m.nome}</td>
+                                <td className="px-3 py-1.5 text-right text-xs uppercase text-muted-foreground">{m.tipo}</td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
