@@ -86,8 +86,9 @@ export async function upsertCatalogByCodigo(produtos: CatalogUpsert[]): Promise<
       unidade_secundaria: p.unidade_secundaria,
       tipo: p.tipo,
       categoria: p.categoria,
-      // Prefixo US: a nota do próprio código é a mão de obra do torneiro.
-      ...(p.tipo === "montado" && ehUsinado(p.codigo) ? { soma_nota: true } : {}),
+      // SEMPRE definido: lote misto (uns com soma_nota, outros sem) faz o PostgREST
+      // mandar null nos que faltam → viola o NOT NULL (23502). Prefixo US = mão de obra do torneiro.
+      soma_nota: p.tipo === "montado" && ehUsinado(p.codigo),
     };
     if (id) paraAtualizar.push({ id, ...base });
     else paraInserir.push(base);
