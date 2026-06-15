@@ -290,6 +290,49 @@ export function parseCatalogFromPositionedItems(
   return parseCatalogWithDiag(pages).produtos;
 }
 
+/**
+ * Renumera os grupos de forma sequencial (01, 02, 03…) mantendo a MESMA ordem
+ * (pelo número original do Nomus), tirando os buracos. Junta grupos com o mesmo
+ * nome (ex.: "34 - CHAPA" e "34-CHAPA" → um só). O grupo de montados
+ * ("…PRODUTO MONTADO") é preservado como está (é fixo, fora do catálogo).
+ */
+export function renumerarGruposSequencial(products: CatalogProduct[]): CatalogProduct[] {
+  const numDe = (c: string): number => {
+    const m = c.match(/(\d+)/);
+    return m ? parseInt(m[1], 10) : 9999;
+  };
+  const limpo = (c: string): string =>
+    c.replace(/^\s*\d+\s*-?\s*/, "").replace(/\s+/g, " ").trim();
+  const ehMontado = (c: string): boolean => /produto montado/i.test(c);
+
+  // Agrupa por nome limpo (case-insensitive), guardando o menor número original.
+  const porNome = new Map<string, { display: string; minNum: number }>();
+  for (const p of products) {
+    const c = p.categoria;
+    if (!c || ehMontado(c)) continue;
+    const display = limpo(c);
+    if (!display) continue;
+    const key = display.toUpperCase();
+    const n = numDe(c);
+    const prev = porNome.get(key);
+    if (!prev || n < prev.minNum) porNome.set(key, { display, minNum: n });
+  }
+
+  const ordenadas = Array.from(porNome.entries()).sort(
+    (a, b) => a[1].minNum - b[1].minNum || a[1].display.localeCompare(b[1].display, "pt-BR"),
+  );
+  const mapa = new Map<string, string>(); // nome-UPPER → "NN - NOME"
+  ordenadas.forEach(([key, g], i) => {
+    mapa.set(key, `${String(i + 1).padStart(2, "0")} - ${g.display}`);
+  });
+
+  return products.map((p) => {
+    if (!p.categoria || ehMontado(p.categoria)) return p;
+    const novo = mapa.get(limpo(p.categoria).toUpperCase());
+    return novo ? { ...p, categoria: novo } : p;
+  });
+}
+
 /** Junta produtos de vários PDFs e remove duplicados por código (mantém o último). */
 export function dedupeCatalog(products: CatalogProduct[]): CatalogProduct[] {
   const byCodigo = new Map<string, CatalogProduct>();

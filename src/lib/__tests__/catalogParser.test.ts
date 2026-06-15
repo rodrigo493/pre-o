@@ -326,6 +326,50 @@ describe("parseCatalogFromSheetRows (CSV/Excel)", () => {
   });
 });
 
+describe("renumerarGruposSequencial", () => {
+  function p(codigo: string, categoria: string | null): CatalogProduct {
+    return { codigo, nome: codigo, unidade: null, unidadeSecundaria: null, tipo: "comprado", categoria };
+  }
+
+  it("renumera sequencial mantendo a ordem do número original e tira buracos", async () => {
+    const { renumerarGruposSequencial } = await import("@/lib/catalogParser");
+    const r = renumerarGruposSequencial([
+      p("a", "01 - PRODUTO ACABADO"),
+      p("b", "04 - USINADOS"),
+      p("c", "07 - PLASTICOS"),
+      p("d", "34 - CHAPA"),
+    ]);
+    expect(r.map((x) => x.categoria)).toEqual([
+      "01 - PRODUTO ACABADO",
+      "02 - USINADOS",
+      "03 - PLASTICOS",
+      "04 - CHAPA",
+    ]);
+  });
+
+  it("junta grupos com o mesmo nome ('34 - CHAPA' e '34-CHAPA')", async () => {
+    const { renumerarGruposSequencial } = await import("@/lib/catalogParser");
+    const r = renumerarGruposSequencial([
+      p("a", "01 - PRODUTO ACABADO"),
+      p("b", "34 - CHAPA"),
+      p("c", "34-CHAPA"),
+    ]);
+    const cats = r.map((x) => x.categoria);
+    expect(cats[1]).toBe("02 - CHAPA");
+    expect(cats[2]).toBe("02 - CHAPA");
+  });
+
+  it("preserva o grupo de montados (fixo, fora do catálogo)", async () => {
+    const { renumerarGruposSequencial } = await import("@/lib/catalogParser");
+    const r = renumerarGruposSequencial([
+      p("a", "07 - USINADOS"),
+      p("b", "22 - PRODUTO MONTADO"),
+    ]);
+    expect(r[0].categoria).toBe("01 - USINADOS");
+    expect(r[1].categoria).toBe("22 - PRODUTO MONTADO");
+  });
+});
+
 describe("dedupeCatalog", () => {
   it("remove duplicados por código mantendo o último", () => {
     const dup: CatalogProduct[] = [

@@ -17,6 +17,7 @@ import {
   parseCatalogFileWithDiag,
   parseCatalogSheetFileWithDiag,
   dedupeCatalog,
+  renumerarGruposSequencial,
   type CatalogProduct,
 } from "@/lib/catalogParser";
 import { listProdutosMestre, upsertCatalogByCodigo } from "@/repositories/produtosMestreRepo";
@@ -122,7 +123,7 @@ export default function ImportarCatalogo() {
     }
     setRelatorio(reports);
     if (todos.length > 0) {
-      setProdutos((prev) => dedupeCatalog([...prev, ...todos]));
+      setProdutos((prev) => renumerarGruposSequencial(dedupeCatalog([...prev, ...todos])));
       toast.success(`${todos.length} produto(s) lido(s) em ${aceitos.length} arquivo(s).`);
     } else {
       toast.warning("Nenhum produto reconhecido nos arquivos.");
