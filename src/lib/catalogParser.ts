@@ -381,24 +381,40 @@ export function parseCatalogFromSheetRows(
 /** Lê CSV/Excel do catálogo Nomus e devolve produtos + diagnóstico. */
 export async function parseCatalogSheetFileWithDiag(file: File): Promise<CatalogParseResult> {
   const buffer = await readFileAsArrayBuffer(file);
-  const wb = XLSX.read(buffer, { type: "array" });
-  const sheet = wb.Sheets[wb.SheetNames[0]];
-  // header:1 → matriz de linhas (não usa a 1ª linha como cabeçalho).
-  const matrix = sheet
-    ? XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: "", blankrows: false })
-    : [];
+  let wb: XLSX.WorkBook;
+  try {
+    wb = XLSX.read(buffer, { type: "array" });
+  } catch {
+    // Alguns ERPs exportam "Excel" que na verdade é HTML/SpreadsheetML — tenta como binário.
+    wb = XLSX.read(buffer, { type: "binary" });
+  }
+  const nomesAbas = wb.SheetNames ?? [];
+  // Usa a 1ª aba que tiver alguma linha.
+  let matrix: unknown[][] = [];
+  for (const nome of nomesAbas) {
+    const sheet = wb.Sheets[nome];
+    if (!sheet) continue;
+    const m = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: "", blankrows: false });
+    if (m.length > 0) {
+      matrix = m;
+      break;
+    }
+  }
   const produtos = parseCatalogFromSheetMatrix(matrix);
   const debug: CatalogDebug = {
     anchors: null,
     codigoEnd: null,
     descricaoEnd: null,
-    linhas: matrix.slice(0, 6).map((r) => (r ?? []).map((c) => String(c ?? "")).join(" | ")),
+    linhas: [
+      `abas: [${nomesAbas.join(", ")}] · linhas lidas: ${matrix.length}`,
+      ...matrix.slice(0, 6).map((r) => (r ?? []).map((c) => String(c ?? "")).join(" | ")),
+    ],
   };
   return {
     produtos,
     paginas: 1,
     porPagina: [produtos.length],
-    anchorsAchados: matrix.length === 0 ? true : produtos.length > 0,
+    anchorsAchados: produtos.length > 0,
     debug,
   };
 }
