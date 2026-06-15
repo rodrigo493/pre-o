@@ -13,7 +13,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import ImportDropzone from "@/components/ImportDropzone";
-import { parseCatalogFileWithDiag, dedupeCatalog, type CatalogProduct } from "@/lib/catalogParser";
+import {
+  parseCatalogFileWithDiag,
+  parseCatalogSheetFileWithDiag,
+  dedupeCatalog,
+  type CatalogProduct,
+} from "@/lib/catalogParser";
 import { listProdutosMestre, upsertCatalogByCodigo } from "@/repositories/produtosMestreRepo";
 
 interface FileReport {
@@ -55,21 +60,24 @@ export default function ImportarCatalogo() {
   );
 
   const handleFiles = async (files: File[]) => {
-    const pdfs = files.filter((f) => f.name.toLowerCase().endsWith(".pdf"));
-    if (pdfs.length === 0) {
-      toast.warning("Solte os PDFs do catálogo Nomus.");
+    const aceitos = files.filter((f) => /\.(pdf|csv|xls|xlsx)$/i.test(f.name));
+    if (aceitos.length === 0) {
+      toast.warning("Solte os PDFs, CSV ou Excel do catálogo Nomus.");
       return;
     }
     setParsing(true);
-    setProgress({ atual: 0, total: pdfs.length });
+    setProgress({ atual: 0, total: aceitos.length });
     const todos: CatalogProduct[] = [];
     const reports: FileReport[] = [];
     let i = 0;
-    for (const file of pdfs) {
+    for (const file of aceitos) {
       i += 1;
-      setProgress({ atual: i, total: pdfs.length });
+      setProgress({ atual: i, total: aceitos.length });
       try {
-        const diag = await parseCatalogFileWithDiag(file);
+        const ehPlanilha = /\.(csv|xls|xlsx)$/i.test(file.name);
+        const diag = ehPlanilha
+          ? await parseCatalogSheetFileWithDiag(file)
+          : await parseCatalogFileWithDiag(file);
         todos.push(...diag.produtos);
         reports.push({
           nome: file.name,
@@ -78,9 +86,14 @@ export default function ImportarCatalogo() {
           total: diag.produtos.length,
           anchorsAchados: diag.anchorsAchados,
         });
+        // Dump no console p/ diagnóstico fino quando algo não vier completo.
+        if (diag.produtos.length === 0 || !diag.anchorsAchados) {
+          // eslint-disable-next-line no-console
+          console.warn(`[catalogo] ${file.name}`, diag.debug);
+        }
         // Avisos claros por arquivo.
         if (!diag.anchorsAchados) {
-          toast.error(`${file.name}: cabeçalho não reconhecido — 0 produtos lidos.`);
+          toast.error(`${file.name}: colunas não reconhecidas — 0 produtos lidos.`);
         } else {
           const pagsVazias = diag.porPagina
             .map((n, idx) => ({ n, idx }))
@@ -108,9 +121,9 @@ export default function ImportarCatalogo() {
     setRelatorio(reports);
     if (todos.length > 0) {
       setProdutos((prev) => dedupeCatalog([...prev, ...todos]));
-      toast.success(`${todos.length} produto(s) lido(s) em ${pdfs.length} PDF(s).`);
+      toast.success(`${todos.length} produto(s) lido(s) em ${aceitos.length} arquivo(s).`);
     } else {
-      toast.warning("Nenhum produto reconhecido nos PDFs.");
+      toast.warning("Nenhum produto reconhecido nos arquivos.");
     }
     setParsing(false);
   };
@@ -176,9 +189,10 @@ export default function ImportarCatalogo() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Importar catálogo Nomus</h1>
         <p className="mt-0.5 text-sm text-muted-foreground">
-          Solte os PDFs do relatório “Produtos” do Nomus. O sistema cria/atualiza os produtos
-          (código, descrição, unidade e tipo). Defina o fator de conversão por produto depois,
-          quando a nota vier em unidade diferente.
+          Solte o relatório “Produtos” do Nomus em <strong>PDF, CSV ou Excel</strong> (CSV/Excel é
+          mais confiável). O sistema cria/atualiza os produtos (código, descrição, unidade, tipo e
+          grupo). Defina o fator de conversão por produto depois, quando a nota vier em unidade
+          diferente.
         </p>
       </div>
 
@@ -186,10 +200,12 @@ export default function ImportarCatalogo() {
         <CardContent className="pt-6">
           <ImportDropzone
             onFiles={handleFiles}
+            accept={[".pdf", ".csv", ".xls", ".xlsx"]}
             disabled={parsing || saving}
             hint={
               <>
-                Arraste os PDFs do <strong>catálogo Nomus</strong> aqui (pode soltar vários)
+                Arraste o <strong>catálogo Nomus</strong> aqui — PDF, CSV ou Excel (pode soltar
+                vários)
               </>
             }
           />

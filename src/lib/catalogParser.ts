@@ -1,3 +1,4 @@
+import * as XLSX from "xlsx";
 import {
   extractPositionedTextFromPDF,
   readFileAsArrayBuffer,
@@ -148,11 +149,19 @@ function isHeaderRow(cells: Array<{ str: string; x: number }>): boolean {
   return cells.some((c) => c.str.includes("Código")) && cells.some((c) => /Descri/.test(c.str));
 }
 
+export interface CatalogDebug {
+  anchors: ColumnAnchors | null;
+  codigoEnd: number | null;
+  descricaoEnd: number | null;
+  linhas: string[]; // primeiras linhas da 1ª página: "x:str | x:str"
+}
+
 export interface CatalogParseResult {
   produtos: CatalogProduct[];
   paginas: number;
   porPagina: number[]; // produtos reconhecidos por página (aprox. na virada)
   anchorsAchados: boolean; // se o cabeçalho de colunas foi reconhecido
+  debug: CatalogDebug;
 }
 
 /**
@@ -167,6 +176,7 @@ export function parseCatalogWithDiag(pages: Array<Array<PDFTextItem>>): CatalogP
   let anchors: ColumnAnchors | null = null;
   let pending: CatalogProduct | null = null;
   let pendingPagina = -1; // página onde o produto pendente começou
+  const debug: CatalogDebug = { anchors: null, codigoEnd: null, descricaoEnd: null, linhas: [] };
 
   const flush = () => {
     if (!pending) return;
@@ -185,10 +195,21 @@ export function parseCatalogWithDiag(pages: Array<Array<PDFTextItem>>): CatalogP
     const pageItems = pages[pageIdx];
     const rows = groupRows(pageItems);
     if (!anchors) anchors = findAnchors(rows);
+    // Captura amostra da 1ª página para diagnóstico (independe de achar âncoras).
+    if (pageIdx === 0) {
+      debug.linhas = rows
+        .slice(0, 14)
+        .map((r) => r.map((c) => `${Math.round(c.x)}:${c.str}`).join(" | "));
+    }
     if (!anchors) continue;
 
     const codigoEnd = (anchors.codigoX + anchors.descricaoX) / 2;
     const descricaoEnd = (anchors.descricaoX + anchors.umX) / 2;
+    if (pageIdx === 0 || debug.anchors == null) {
+      debug.anchors = anchors;
+      debug.codigoEnd = codigoEnd;
+      debug.descricaoEnd = descricaoEnd;
+    }
     // Faixa da coluna "Grupo de produto": entre Tipo e a próxima coluna
     // (Família, se houver; senão Ressuprimento; senão margem fixa).
     const grupoStart = anchors.grupoX != null ? (anchors.tipoX + anchors.grupoX) / 2 : null;
@@ -254,6 +275,7 @@ export function parseCatalogWithDiag(pages: Array<Array<PDFTextItem>>): CatalogP
     paginas: pages.length,
     porPagina,
     anchorsAchados: anchors != null,
+    debug,
   };
 }
 
@@ -283,4 +305,78 @@ export async function parseCatalogFileWithDiag(file: File): Promise<CatalogParse
   const buffer = await readFileAsArrayBuffer(file);
   const pages = await extractPositionedTextFromPDF(buffer);
   return parseCatalogWithDiag(pages);
+}
+
+// ── Importação por planilha (CSV / Excel) ──────────────────────────────
+// Caminho mais confiável que o PDF: colunas vêm nomeadas, sem adivinhar X/Y.
+
+function normKey(k: string): string {
+  return stripAccents(k).toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+/** Mapeia linhas do relatório Nomus (CSV/Excel) → CatalogProduct, por nome de coluna. */
+export function parseCatalogFromSheetRows(
+  rows: Array<Record<string, unknown>>,
+): CatalogProduct[] {
+  if (rows.length === 0) return [];
+  const keys = Object.keys(rows[0]);
+  const find = (pred: (nk: string) => boolean): string | null =>
+    keys.find((k) => pred(normKey(k))) ?? null;
+
+  const kCodigo = find((nk) => nk.includes("codigo"));
+  const kDescricao = find((nk) => nk.includes("descri"));
+  const kUmSec = find((nk) => nk.includes("um") && nk.includes("secund")) ??
+    find((nk) => nk.includes("secund"));
+  const kUm =
+    find((nk) => nk === "um" && true) ??
+    find((nk) => (nk.includes("um") || nk.includes("unidade")) && !nk.includes("secund"));
+  const kGrupo = find((nk) => nk.includes("grupo"));
+  const kRessup = find((nk) => nk.includes("ressup"));
+
+  if (!kCodigo || !kDescricao) return [];
+
+  const get = (row: Record<string, unknown>, key: string | null): string =>
+    key ? String(row[key] ?? "").trim() : "";
+
+  const out: CatalogProduct[] = [];
+  for (const row of rows) {
+    const codigo = get(row, kCodigo);
+    const nome = get(row, kDescricao).replace(/\s+/g, " ").trim();
+    if (!codigo || !nome) continue;
+    const um = get(row, kUm);
+    const umSec = get(row, kUmSec);
+    out.push({
+      codigo,
+      nome,
+      unidade: um ? normalizeUnit(um) : null,
+      unidadeSecundaria: umSec ? normalizeUnit(umSec) : null,
+      tipo: decidirTipo(codigo, get(row, kRessup)),
+      categoria: limparCategoria(get(row, kGrupo)) || null,
+    });
+  }
+  return out;
+}
+
+/** Lê CSV/Excel do catálogo Nomus e devolve produtos + diagnóstico. */
+export async function parseCatalogSheetFileWithDiag(file: File): Promise<CatalogParseResult> {
+  const buffer = await readFileAsArrayBuffer(file);
+  const wb = XLSX.read(buffer, { type: "array" });
+  const sheet = wb.Sheets[wb.SheetNames[0]];
+  const rows = sheet
+    ? XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: "" })
+    : [];
+  const produtos = parseCatalogFromSheetRows(rows);
+  const debug: CatalogDebug = {
+    anchors: null,
+    codigoEnd: null,
+    descricaoEnd: null,
+    linhas: rows.length > 0 ? [Object.keys(rows[0]).join(" | ")] : ["(planilha vazia)"],
+  };
+  return {
+    produtos,
+    paginas: 1,
+    porPagina: [produtos.length],
+    anchorsAchados: rows.length === 0 ? true : produtos.length > 0,
+    debug,
+  };
 }

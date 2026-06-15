@@ -255,6 +255,62 @@ describe("regressões dos PDFs reais (Produtos | Nomus)", () => {
   });
 });
 
+describe("parseCatalogFromSheetRows (CSV/Excel)", () => {
+  it("mapeia colunas do Nomus por nome e decide tipo", async () => {
+    const { parseCatalogFromSheetRows } = await import("@/lib/catalogParser");
+    const rows = [
+      {
+        "Código do produto": "US.RF.128",
+        "Descrição": "BOTÃO MOLAS",
+        "U.M.": "PEÇA",
+        "U.M. Secundária": "",
+        "Tipo de produto": "Matéria prima",
+        "Grupo de produto": "04 - USINADOS",
+        Ressuprimento: "Comprado",
+      },
+      {
+        "Código do produto": "CH.LISA.2,0",
+        "Descrição": "CHAPA LISA 2,0MM",
+        "U.M.": "UNIDADE",
+        "U.M. Secundária": "QUILOGRAMA",
+        "Tipo de produto": "Matéria prima",
+        "Grupo de produto": "34 - CHAPA",
+        Ressuprimento: "Comprado",
+      },
+    ];
+    const result = parseCatalogFromSheetRows(rows);
+    expect(result).toEqual<CatalogProduct[]>([
+      {
+        codigo: "US.RF.128",
+        nome: "BOTÃO MOLAS",
+        unidade: "PECA",
+        unidadeSecundaria: null,
+        tipo: "montado", // prefixo US → fabricado
+        categoria: "04 - USINADOS",
+      },
+      {
+        codigo: "CH.LISA.2,0",
+        nome: "CHAPA LISA 2,0MM",
+        unidade: "UNIDADE",
+        unidadeSecundaria: "QUILOGRAMA",
+        tipo: "comprado",
+        categoria: "34 - CHAPA",
+      },
+    ]);
+  });
+
+  it("ignora linhas sem código/descrição e devolve [] se não achar as colunas", async () => {
+    const { parseCatalogFromSheetRows } = await import("@/lib/catalogParser");
+    expect(parseCatalogFromSheetRows([{ Foo: "x", Bar: "y" }])).toEqual([]);
+    const result = parseCatalogFromSheetRows([
+      { "Código do produto": "", "Descrição": "sem codigo" },
+      { "Código do produto": "OK.1", "Descrição": "vale" },
+    ]);
+    expect(result).toHaveLength(1);
+    expect(result[0].codigo).toBe("OK.1");
+  });
+});
+
 describe("dedupeCatalog", () => {
   it("remove duplicados por código mantendo o último", () => {
     const dup: CatalogProduct[] = [

@@ -6,17 +6,22 @@ interface ImportDropzoneProps {
   onFiles: (files: File[]) => void;
   disabled?: boolean;
   hint?: ReactNode;
+  accept?: string[];
 }
 
-const ACCEPTED = [".xml", ".pdf"];
+const ACCEPTED_PADRAO = [".xml", ".pdf"];
 
-function filterAccepted(files: File[]): File[] {
-  return files.filter((f) => ACCEPTED.some((ext) => f.name.toLowerCase().endsWith(ext)));
-}
-
-export default function ImportDropzone({ onFiles, disabled, hint }: ImportDropzoneProps) {
+export default function ImportDropzone({
+  onFiles,
+  disabled,
+  hint,
+  accept = ACCEPTED_PADRAO,
+}: ImportDropzoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
+
+  const filterAccepted = (files: File[]): File[] =>
+    files.filter((f) => accept.some((ext) => f.name.toLowerCase().endsWith(ext)));
 
   const emit = (fileList: FileList | null) => {
     if (!fileList) return;
@@ -63,7 +68,7 @@ export default function ImportDropzone({ onFiles, disabled, hint }: ImportDropzo
       <input
         ref={inputRef}
         type="file"
-        accept=".xml,.pdf"
+        accept={accept.join(",")}
         multiple
         className="hidden"
         onChange={(e) => {
